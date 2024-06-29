@@ -11,11 +11,12 @@ def rton_decode(fp1,
 
                 # JSON options
                 align_items=False,          # True -> override indent
-                allow_duplicate_keys=True,  # False -> Python
+                allow_large_numbers=True,
                 allow_nan=True,
                 ensure_ascii=False,
                 indent='\t',                # None -> no indent
                 item_separator=', ',        # indent not None -> strip trailing whitespace
+                keep_duplicate_keys=True,   # False -> Python
                 key_separator=': ',
                 sort_keys=False,            # True -> Python
                 ) -> None: ...
