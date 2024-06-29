@@ -20,7 +20,9 @@ def rton_decode(fp1,
                 sort_keys=False,            # True -> Python
                 ) -> None: ...
 
-def rton_encode(fp1, fp2, *,
+def rton_encode(fp1,
+                fp2,
+                *,
                 # JSON options
                 strict=None,                # False -> C
                 ) -> None: ...
