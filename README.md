@@ -1,30 +1,37 @@
 # Python Vs. Zombies 2 (PyVZ2)
 
-TODO:
+## TODO
 
-```py
-def rton_decode(fp1,
-                fp2,
-                *,
-                # RTON options
-                strict=False,
+```python
+# rton.py
+def dumps(obj,
+          *,
+          cache_strings=True,
+          ): ...
 
-                # JSON options
-                align_items=False,          # True -> override indent
-                allow_large_numbers=True,
-                allow_nan=True,
-                ensure_ascii=False,
-                indent='\t',                # None -> no indent
-                item_separator=', ',        # indent not None -> strip trailing whitespace
-                keep_duplicate_keys=True,   # False -> Python
-                key_separator=': ',
-                sort_keys=False,            # True -> Python
-                ) -> None: ...
+def loads(data,
+          *,
+          strict=False,
+          ): ...
+```
 
-def rton_encode(fp1,
-                fp2,
-                *,
-                # JSON options
-                strict=None,                # False -> C
-                ) -> None: ...
+```python
+# jsonc.py
+def dumps(obj,
+          *,
+          align_items=False,    # True -> override indent
+          allow_nan=True,
+          ensure_ascii=False,
+          indent='\t',          # None -> no indent
+          item_separator=', ',  # indent not None -> strip trailing whitespace
+          key_separator=': ',
+          sort_keys=False,
+          ): ...
+
+def loads(data,
+          *,
+          allow_comments=True,
+          allow_nan=True,
+          allow_trailing_comma=True,
+          ): ...
 ```
