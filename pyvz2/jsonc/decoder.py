@@ -5,25 +5,16 @@ from __future__ import annotations
 __all__: list[str] = ["JSONDecodeError", "JSONDecoder"]
 
 import re
+from json import JSONDecodeError
 from re import DOTALL, MULTILINE, VERBOSE, Match, Pattern, RegexFlag
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from jsonc.scanner import make_scanner
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 FLAGS: RegexFlag = VERBOSE | MULTILINE | DOTALL
-
-
-class JSONDecodeError(ValueError):
-    """JSON decode error."""
-
-    def __init__(self, msg: str, doc: str, pos: int) -> None:
-        """Create new JSON decode error."""
-        lineno: int = doc.count("\n", 0, pos) + 1
-        colno: int = pos - doc.rfind("\n", 0, pos)
-        errmsg: str = f"{msg}: line {lineno} column {colno} (char {pos:d})"
-        super().__init__(errmsg)
-
-
 STRINGCHUNK: Pattern[str] = re.compile(
     r'([^"\\\x00-\x1f]*)(["\\\x00-\x1f])', FLAGS,
 )
@@ -284,7 +275,6 @@ class JSONDecoder:
             [str, int, Any], tuple[list[Any], int],
         ] = parse_array
         self.parse_string: Callable[[str, int], tuple[str, int]] = parse_string
-        self.memo: dict[str, str] = {}
         self.scan_once: Callable[
             [str, int], tuple[Any, int],
         ] = make_scanner(self)  # type: ignore

@@ -1,4 +1,4 @@
-"""JSON token scanner."""
+"""JSON scanner."""
 # Copyright (C) 2024 Nice Zombies
 from __future__ import annotations
 
@@ -7,9 +7,11 @@ __all__ = ["make_scanner"]
 import re
 from math import inf, nan
 from re import DOTALL, MULTILINE, VERBOSE, Match, Pattern
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from jsonc import JSONDecoder
 
 NUMBER: Pattern[str] = re.compile(
@@ -34,7 +36,7 @@ except ImportError:
             [str, int], tuple[str, int],
         ] = decoder.parse_string
         match_number: Callable[[str, int], Match[str] | None] = NUMBER.match
-        memo: dict[str, str] = decoder.memo
+        memo: dict[str, str] = {}
 
         # pylint: disable=too-many-branches
         def _scan_once(  # noqa: C901, PLR0912

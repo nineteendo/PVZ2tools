@@ -2,17 +2,79 @@
 # Copyright (C) 2024 Nice Zombies
 from __future__ import annotations
 
-__all__: list[str] = ["JSONDecodeError", "JSONDecoder", "load", "loads"]
+__all__: list[str] = [
+    "JSONDecodeError",
+    "JSONDecoder",
+    "JSONEncoder",
+    "dump",
+    "dumps",
+    "load",
+    "loads",
+]
 
 from codecs import (
     BOM_UTF8, BOM_UTF16_BE, BOM_UTF16_LE, BOM_UTF32_BE, BOM_UTF32_LE,
 )
-from typing import TYPE_CHECKING, Any, Callable
+from json.encoder import JSONEncoder
+from typing import TYPE_CHECKING, Any
 
 from jsonc.decoder import JSONDecodeError, JSONDecoder
 
 if TYPE_CHECKING:
-    from _typeshed import SupportsRead
+    from collections.abc import Callable
+
+    from _typeshed import SupportsRead, SupportsWrite
+
+
+# pylint: disable=too-many-arguments
+def dump(  # noqa: PLR0913
+    obj: Any,
+    fp: SupportsWrite[str],
+    *,
+    allow_nan: bool = False,
+    ensure_ascii: bool = False,
+    indent: int | str | None = None,
+    item_separator: str = ", ",
+    key_separator: str = ": ",
+    sort_keys: bool = False,
+) -> None:
+    """Serialize object to a JSON formatted file."""
+    if indent is not None:
+        item_separator = item_separator.rstrip()
+
+    # pylint: disable=too-many-boolean-expressions
+    for chunk in JSONEncoder(
+        allow_nan=allow_nan,
+        ensure_ascii=ensure_ascii,
+        indent=indent,
+        separators=(item_separator, key_separator),
+        sort_keys=sort_keys,
+    ).iterencode(obj):
+        fp.write(chunk)
+
+
+# pylint: disable=too-many-arguments
+def dumps(  # noqa: PLR0913
+    obj: Any,
+    *,
+    allow_nan: bool = False,
+    ensure_ascii: bool = False,
+    indent: int | str | None = None,
+    item_separator: str = ", ",
+    key_separator: str = ": ",
+    sort_keys: bool = False,
+) -> str:
+    """Serialize object to a JSON formatted string."""
+    if indent is not None:
+        item_separator = item_separator.rstrip()
+
+    return JSONEncoder(
+        allow_nan=allow_nan,
+        ensure_ascii=ensure_ascii,
+        indent=indent,
+        separators=(item_separator, key_separator),
+        sort_keys=sort_keys,
+    ).encode(obj)
 
 
 def _decode_bytes(b: bytearray | bytes) -> str:
