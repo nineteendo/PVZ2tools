@@ -1,5 +1,7 @@
-"""JSON accelerator."""
 # Copyright (C) 2024 Nice Zombies
+"""JSON accelerator."""
+__all__: list[str] = ["make_scanner", "parse_string"]
+
 from typing import Any, Callable
 
 from jsonc import JSONDecoder

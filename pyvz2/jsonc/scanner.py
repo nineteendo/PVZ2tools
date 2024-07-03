@@ -1,5 +1,5 @@
-"""JSON scanner."""
 # Copyright (C) 2024 Nice Zombies
+"""JSON scanner."""
 from __future__ import annotations
 
 __all__ = ["make_scanner"]
@@ -38,7 +38,7 @@ except ImportError:
         match_number: Callable[[str, int], Match[str] | None] = NUMBER.match
         memo: dict[str, str] = {}
 
-        # pylint: disable=too-many-branches
+        # pylint: disable-next=R0912
         def _scan_once(  # noqa: C901, PLR0912
             string: str, idx: int,
         ) -> tuple[Any, int]:

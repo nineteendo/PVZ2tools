@@ -1,5 +1,5 @@
-"""JSON decoder."""
 # Copyright (C) 2024 Nice Zombies
+"""JSON decoder."""
 from __future__ import annotations
 
 __all__: list[str] = ["JSONDecodeError", "JSONDecoder"]
@@ -46,7 +46,6 @@ def _decode_unicode_escape(s: str, pos: int) -> int:
 try:
     from jsonc._accelerator import parse_string
 except ImportError:
-    # pylint: disable=too-many-locals
     def parse_string(s: str, end: int, /) -> tuple[str, int]:  # noqa: C901
         """Parse JSON string."""
         backslash: dict[str, str] = BACKSLASH
@@ -112,8 +111,7 @@ WHITESPACE: Pattern[str] = re.compile(r"[ \t\n\r]*", FLAGS)
 WHITESPACE_STR: str = " \t\n\r"
 
 
-# pylint: disable=too-many-arguments, too-many-locals, too-many-branches,
-# pylint: disable=too-many-statements
+# pylint: disable-next=R0912, R0915
 def parse_object(  # noqa: C901, PLR0912, PLR0915
     s: str, end: int, scan_once: Callable[[str, int], tuple[Any, int]],
     memo: dict[str, str],
@@ -262,8 +260,7 @@ def parse_array(  # noqa: C901
     return values, end
 
 
-# pylint: disable=too-few-public-methods
-class JSONDecoder:
+class JSONDecoder:  # pylint: disable=R0903
     """JSON decoder."""
 
     def __init__(self) -> None:

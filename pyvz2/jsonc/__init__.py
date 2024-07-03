@@ -1,5 +1,5 @@
-"""JSON with Comments module."""
 # Copyright (C) 2024 Nice Zombies
+"""JSON with Comments module."""
 from __future__ import annotations
 
 __all__: list[str] = [
@@ -16,22 +16,22 @@ from codecs import (
     BOM_UTF8, BOM_UTF16_BE, BOM_UTF16_LE, BOM_UTF32_BE, BOM_UTF32_LE,
 )
 from json.encoder import JSONEncoder
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from jsonc.decoder import JSONDecodeError, JSONDecoder
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     from _typeshed import SupportsRead, SupportsWrite
 
 
-# pylint: disable=too-many-arguments
+# pylint: disable-next=R0913
 def dump(  # noqa: PLR0913
     obj: Any,
     fp: SupportsWrite[str],
     *,
-    allow_nan: bool = False,
+    allow: Sequence[Literal["nan"]] | Sequence[Any] = (),
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
@@ -42,22 +42,21 @@ def dump(  # noqa: PLR0913
     if indent is not None:
         item_separator = item_separator.rstrip()
 
-    # pylint: disable=too-many-boolean-expressions
     for chunk in JSONEncoder(
-        allow_nan=allow_nan,
         ensure_ascii=ensure_ascii,
+        allow_nan="nan" in allow,
+        sort_keys=sort_keys,
         indent=indent,
         separators=(item_separator, key_separator),
-        sort_keys=sort_keys,
     ).iterencode(obj):
         fp.write(chunk)
 
 
-# pylint: disable=too-many-arguments
+# pylint: disable-next=R0913
 def dumps(  # noqa: PLR0913
     obj: Any,
     *,
-    allow_nan: bool = False,
+    allow: Sequence[Literal["nan"]] | Sequence[Any] = (),
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
@@ -69,11 +68,11 @@ def dumps(  # noqa: PLR0913
         item_separator = item_separator.rstrip()
 
     return JSONEncoder(
-        allow_nan=allow_nan,
         ensure_ascii=ensure_ascii,
+        allow_nan="nan" in allow,
+        sort_keys=sort_keys,
         indent=indent,
         separators=(item_separator, key_separator),
-        sort_keys=sort_keys,
     ).encode(obj)
 
 
