@@ -19,7 +19,7 @@ def loads(data,
 # jsonc.py
 def dumps(obj,
           *,
-          allow=(),  # nan
+          allow=(),             # comments, nan, trailing_comma
           ensure_ascii=False,
           indent=None,
           item_separator=', ',  # indent not None -> strip trailing whitespace
