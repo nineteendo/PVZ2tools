@@ -15,10 +15,10 @@ __all__: list[str] = [
 from codecs import (
     BOM_UTF8, BOM_UTF16_BE, BOM_UTF16_LE, BOM_UTF32_BE, BOM_UTF32_LE,
 )
-from json.encoder import JSONEncoder
 from typing import TYPE_CHECKING, Any, Literal
 
 from jsonc.decoder import JSONDecodeError, JSONDecoder
+from jsonc.encoder import JSONEncoder
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -43,11 +43,12 @@ def dump(  # noqa: PLR0913
         item_separator = item_separator.rstrip()
 
     for chunk in JSONEncoder(
+        allow=allow,
         ensure_ascii=ensure_ascii,
-        allow_nan="nan" in allow,
-        sort_keys=sort_keys,
         indent=indent,
-        separators=(item_separator, key_separator),
+        item_separator=item_separator,
+        key_separator=key_separator,
+        sort_keys=sort_keys,
     ).iterencode(obj):
         fp.write(chunk)
 
@@ -68,11 +69,12 @@ def dumps(  # noqa: PLR0913
         item_separator = item_separator.rstrip()
 
     return JSONEncoder(
+        allow=allow,
         ensure_ascii=ensure_ascii,
-        allow_nan="nan" in allow,
-        sort_keys=sort_keys,
         indent=indent,
-        separators=(item_separator, key_separator),
+        item_separator=item_separator,
+        key_separator=key_separator,
+        sort_keys=sort_keys,
     ).encode(obj)
 
 

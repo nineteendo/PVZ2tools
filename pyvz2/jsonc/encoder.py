@@ -1,0 +1,32 @@
+# Copyright (C) 2024 Nice Zombies
+"""JSON encoder."""
+from __future__ import annotations
+
+__all__: list[str] = ["JSONEncoder"]
+
+import json
+from typing import Any, Literal, Sequence
+
+
+class JSONEncoder(json.JSONEncoder):
+    """JSON encoder."""
+
+    # pylint: disable-next=R0913
+    def __init__(  # noqa: PLR0913
+        self,
+        *,
+        allow: Sequence[Literal["nan"]] | Sequence[Any] = (),
+        ensure_ascii: bool = False,
+        indent: int | str | None = None,
+        item_separator: str = ", ",
+        key_separator: str = ": ",
+        sort_keys: bool = False,
+    ) -> None:
+        """Create new JSON encoder."""
+        super().__init__(
+            ensure_ascii=ensure_ascii,
+            allow_nan="nan" in allow,
+            sort_keys=sort_keys,
+            indent=indent,
+            separators=(item_separator, key_separator),
+        )
