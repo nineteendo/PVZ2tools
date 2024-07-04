@@ -7,7 +7,7 @@ __all__: list[str] = []
 
 import sys
 from argparse import ArgumentParser
-from typing import Any, Literal
+from typing import Any, Literal, assert_never
 
 import jsonc.tool
 
@@ -27,6 +27,8 @@ def _main() -> None:
         pyvz2_args: _PyVZ2Namespace = args
         if pyvz2_args.command == "json":
             jsonc.tool.run(args)
+        else:
+            assert_never(pyvz2_args.command)
     except BrokenPipeError as exc:
         sys.exit(exc.errno)
 
