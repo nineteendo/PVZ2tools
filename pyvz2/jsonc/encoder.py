@@ -23,6 +23,9 @@ class JSONEncoder(json.JSONEncoder):
         sort_keys: bool = False,
     ) -> None:
         """Create new JSON encoder."""
+        if indent is not None:
+            item_separator = item_separator.rstrip()
+
         super().__init__(
             ensure_ascii=ensure_ascii,
             allow_nan="nan" in allow,

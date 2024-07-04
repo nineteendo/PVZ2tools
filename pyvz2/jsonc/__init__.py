@@ -39,9 +39,6 @@ def dump(  # noqa: PLR0913
     sort_keys: bool = False,
 ) -> None:
     """Serialize object to a JSON formatted file."""
-    if indent is not None:
-        item_separator = item_separator.rstrip()
-
     for chunk in JSONEncoder(
         allow=allow,
         ensure_ascii=ensure_ascii,
@@ -65,9 +62,6 @@ def dumps(  # noqa: PLR0913
     sort_keys: bool = False,
 ) -> str:
     """Serialize object to a JSON formatted string."""
-    if indent is not None:
-        item_separator = item_separator.rstrip()
-
     return JSONEncoder(
         allow=allow,
         ensure_ascii=ensure_ascii,
