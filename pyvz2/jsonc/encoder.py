@@ -8,6 +8,7 @@ import json
 from typing import Any, Literal, Sequence
 
 
+# TODO(Nice Zombies): only allow strings as keys
 class JSONEncoder(json.JSONEncoder):
     """JSON encoder."""
 

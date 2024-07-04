@@ -48,7 +48,6 @@ except ImportError:
                 raise StopIteration(idx) from None
 
             result: Any
-            end: int
             if nextchar == '"':
                 result, end = parse_string(string, idx + 1)
             elif nextchar == "{":

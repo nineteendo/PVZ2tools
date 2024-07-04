@@ -5,8 +5,8 @@ from __future__ import annotations
 __all__: list[str] = ["JSONDecodeError", "JSONDecoder"]
 
 import re
-from json import JSONDecodeError
 from re import DOTALL, MULTILINE, VERBOSE, Match, Pattern, RegexFlag
+from shutil import get_terminal_size
 from typing import TYPE_CHECKING, Any
 
 from jsonc.scanner import make_scanner
@@ -15,6 +15,45 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 FLAGS: RegexFlag = VERBOSE | MULTILINE | DOTALL
+
+
+class JSONDecodeError(ValueError):
+    """JSON decode error."""
+
+    def __init__(  # pylint: disable=R0914
+        self, msg: str, doc: str, pos: int, filename: str = "<unknown>",
+    ) -> None:
+        """Create new JSON decode error."""
+        line_start: int = doc.rfind("\n", 0, pos) + 1
+        if (line_end := doc.find("\n", pos)) == -1:
+            line_end = len(doc)
+
+        lineno: int = doc.count("\n", 0, line_start) + 1
+        colno: int = pos - line_start + 1
+
+        # Extract the context of the error
+        max_chars: int = get_terminal_size().columns - 4  # leading spaces
+        min_start: int = min(line_end - max_chars, pos - max_chars // 2)
+        max_end: int = max(line_start + max_chars, pos + max_chars // 2)
+        context_start: int = max(min_start, line_start)
+        context_end: int = min(line_end, max_end)
+        context: str = doc[context_start:context_end]
+        if context_start > line_start:
+            context = "..." + context[3:]
+
+        if context_end < line_end:
+            context = context[:-3] + "..."
+
+        caret_line: str = " " * (pos - context_start) + "^"
+        errmsg: str = (
+            f"{msg}\n"
+            f"  File {filename!r}, line {lineno}, column {colno}\n"
+            f"    {context}\n"
+            f"    {caret_line}"
+        )
+        super().__init__(errmsg)
+
+
 STRINGCHUNK: Pattern[str] = re.compile(
     r'([^"\\\x00-\x1f]*)(["\\\x00-\x1f])', FLAGS,
 )
@@ -54,9 +93,7 @@ except ImportError:
         append_chunk: Callable[[str], None] = chunks.append
         begin: int = end - 1
         while True:
-            chunk: Match[str] | None = match_str(s, end)
-            msg: str
-            if not chunk:
+            if not (chunk := match_str(s, end)):
                 msg = "Unterminated string starting at"
                 raise JSONDecodeError(msg, s, begin)
 
@@ -128,7 +165,6 @@ def parse_object(  # noqa: C901, PLR0912, PLR0915
     # check will raise a more specific ValueError if the string is empty
     nextchar: str = s[end:end + 1]
     # Normally we expect nextchar == '"'
-    msg: str
     if nextchar != '"':
         if nextchar in whitespace_str:
             end = match_whitespace(s, end).end()
@@ -171,8 +207,7 @@ def parse_object(  # noqa: C901, PLR0912, PLR0915
 
         append_pair((key, value))
         try:
-            nextchar = s[end]
-            if nextchar in whitespace_str:
+            if (nextchar := s[end]) in whitespace_str:
                 end = match_whitespace(s, end + 1).end()
                 nextchar = s[end]
         except IndexError:
@@ -210,8 +245,7 @@ def parse_array(  # noqa: C901
     ] = WHITESPACE.match  # type: ignore
     whitespace_str: str = WHITESPACE_STR
     values: list[Any] = []
-    nextchar: str = s[end:end + 1]
-    if nextchar in whitespace_str:
+    if (nextchar := s[end:end + 1]) in whitespace_str:
         end = match_whitespace(s, end + 1).end()
         nextchar = s[end:end + 1]
 
@@ -221,7 +255,6 @@ def parse_array(  # noqa: C901
 
     append_value: Callable[[Any], None] = values.append
     while True:
-        msg: str
         try:
             value, end = scan_once(s, end)
         except StopIteration as err:
@@ -229,8 +262,7 @@ def parse_array(  # noqa: C901
             raise JSONDecodeError(msg, s, err.value) from None
 
         append_value(value)
-        nextchar = s[end:end + 1]
-        if nextchar in whitespace_str:
+        if (nextchar := s[end:end + 1]) in whitespace_str:
             end = match_whitespace(s, end + 1).end()
             nextchar = s[end:end + 1]
 
@@ -263,6 +295,9 @@ def parse_array(  # noqa: C901
 class JSONDecoder:  # pylint: disable=R0903
     """JSON decoder."""
 
+    # TODO(Nice Zombies): allow={"nan"}
+    # TODO(Nice Zombies): allow={"comments"}
+    # TODO(Nice Zombies): allow={"trailing_comma"}
     def __init__(self) -> None:
         """Create new JSON decoder."""
         self.parse_object: Callable[[
@@ -282,15 +317,13 @@ class JSONDecoder:  # pylint: disable=R0903
             [str, int], Match[str],
         ] = WHITESPACE.match  # type: ignore
         idx: int = match_whitespace(s, 0).end()
-        msg: str
         try:
             obj, end = self.scan_once(s, idx)
         except StopIteration as err:
             msg = "Expecting value"
             raise JSONDecodeError(msg, s, err.value) from None
 
-        end = match_whitespace(s, end).end()
-        if end < len(s):
+        if (end := match_whitespace(s, end).end()) < len(s):
             msg = "Extra data"
             raise JSONDecodeError(msg, s, end)
 
