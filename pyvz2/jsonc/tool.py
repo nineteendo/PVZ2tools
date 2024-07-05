@@ -3,19 +3,24 @@
 """JSON tool."""
 from __future__ import annotations
 
-__all__ = ["configure", "run"]
+__all__ = ["JSONNamespace", "configure", "run"]
 
 import sys
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from sys import stdin, stdout
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from jsonc import dumps, loads
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
-class _JSONNamespace:  # pylint: disable=R0903
-    allow: list[str]
+
+class JSONNamespace(Namespace):  # pylint: disable=R0903
+    """JSON namespace."""
+
+    allow: Sequence[Literal["nan"]]
     compact: bool
     ensure_ascii: bool
     indent: int | str | None
@@ -43,18 +48,19 @@ def configure(parser: ArgumentParser) -> None:
     parser.add_argument("--sort-keys", action="store_true")
 
 
-def run(args: _JSONNamespace) -> None:
+def run(args: JSONNamespace) -> None:
     """Run JSON tool."""
     input_json: bytes | str
     if args.json_file:
-        input_json = Path(args.json_file).read_bytes()
+        filename = args.json_file
+        input_json = Path(filename).read_bytes()
     elif stdin.isatty():
-        input_json = "\n".join(iter(input, ""))
+        filename, input_json = "<stdin>", "\n".join(iter(input, ""))
     else:
-        input_json = stdin.buffer.read()
+        filename, input_json = "<stdin>", stdin.buffer.read()
 
     try:
-        obj: Any = loads(input_json)
+        obj: Any = loads(input_json, filename=filename)
         output_json: str = dumps(
             obj,
             allow=args.allow,
@@ -74,8 +80,7 @@ def _main() -> None:
     try:
         parser: ArgumentParser = ArgumentParser()
         configure(parser)
-        args: Any = parser.parse_args()
-        run(args)
+        run(cast(JSONNamespace, parser.parse_args()))
     except BrokenPipeError as exc:
         sys.exit(exc.errno)
 

@@ -6,13 +6,14 @@ from __future__ import annotations
 __all__: list[str] = []
 
 import sys
-from argparse import ArgumentParser
-from typing import Any, Literal, assert_never
+from argparse import ArgumentParser, Namespace
+from typing import Literal, assert_never, cast
 
 import jsonc.tool
+from jsonc.tool import JSONNamespace
 
 
-class _PyVZ2Namespace:  # pylint: disable=R0903
+class _PyVZ2Namespace(Namespace):  # pylint: disable=R0903
     command: Literal["json"]
 
 
@@ -23,12 +24,11 @@ def _main() -> None:
             dest="command", required=True, help="command",
         )
         jsonc.tool.configure(commands.add_parser("json"))
-        args: Any = parser.parse_args()
-        pyvz2_args: _PyVZ2Namespace = args
-        if pyvz2_args.command == "json":
-            jsonc.tool.run(args)
+        args: _PyVZ2Namespace = parser.parse_args(namespace=_PyVZ2Namespace())
+        if args.command == "json":
+            jsonc.tool.run(cast(JSONNamespace, args))
         else:
-            assert_never(pyvz2_args.command)
+            assert_never(args.command)
     except BrokenPipeError as exc:
         sys.exit(exc.errno)
 

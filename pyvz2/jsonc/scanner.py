@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from jsonc import JSONDecoder
+    from jsonc.decoder import JSONDecoder
 
 NUMBER: Pattern[str] = re.compile(
     r"(-?(?:0|[1-9]\d*))(\.\d+)?([eE][-+]?\d+)?", VERBOSE | MULTILINE | DOTALL,
@@ -23,24 +23,25 @@ try:
     from jsonc._accelerator import make_scanner
 except ImportError:
     def make_scanner(decoder: JSONDecoder) -> (   # noqa: C901
-        Callable[[str, int], tuple[Any, int]]
+        Callable[[str, str, int], tuple[Any, int]]
     ):
         """Make JSON scanner."""
         parse_object: Callable[[
-            str, int, Callable[[str, int], tuple[Any, int]], dict[str, str],
+            str, str, int, Callable[[str, str, int], tuple[Any, int]],
+            dict[str, str],
         ], tuple[dict[str, Any], int]] = decoder.parse_object
-        parse_array: Callable[
-            [str, int, Any], tuple[list[Any], int],
-        ] = decoder.parse_array
+        parse_array: Callable[[
+            str, str, int, Callable[[str, str, int], tuple[Any, int]],
+        ], tuple[list[Any], int]] = decoder.parse_array
         parse_string: Callable[
-            [str, int], tuple[str, int],
+            [str, str, int], tuple[str, int],
         ] = decoder.parse_string
         match_number: Callable[[str, int], Match[str] | None] = NUMBER.match
         memo: dict[str, str] = {}
 
         # pylint: disable-next=R0912
         def _scan_once(  # noqa: C901, PLR0912
-            string: str, idx: int,
+            filename: str, string: str, idx: int,
         ) -> tuple[Any, int]:
             try:
                 nextchar = string[idx]
@@ -49,11 +50,15 @@ except ImportError:
 
             result: Any
             if nextchar == '"':
-                result, end = parse_string(string, idx + 1)
+                result, end = parse_string(filename, string, idx + 1)
             elif nextchar == "{":
-                result, end = parse_object(string, idx + 1, _scan_once, memo)
+                result, end = parse_object(
+                    filename, string, idx + 1, _scan_once, memo,
+                )
             elif nextchar == "[":
-                result, end = parse_array(string, idx + 1, _scan_once)
+                result, end = parse_array(
+                    filename, string, idx + 1, _scan_once,
+                )
             elif nextchar == "n" and string[idx:idx + 4] == "null":
                 result, end = None, idx + 4
             elif nextchar == "t" and string[idx:idx + 4] == "true":
@@ -78,9 +83,9 @@ except ImportError:
 
             return result, end
 
-        def scan_once(string: str, idx: int) -> tuple[Any, int]:
+        def scan_once(filename: str, string: str, idx: int) -> tuple[Any, int]:
             try:
-                return _scan_once(string, idx)
+                return _scan_once(filename, string, idx)
             finally:
                 memo.clear()
 

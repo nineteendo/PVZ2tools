@@ -5,7 +5,10 @@ from __future__ import annotations
 __all__: list[str] = ["JSONEncoder"]
 
 import json
-from typing import Any, Literal, Sequence
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 # TODO(Nice Zombies): only allow strings as keys
@@ -16,7 +19,7 @@ class JSONEncoder(json.JSONEncoder):
     def __init__(  # noqa: PLR0913
         self,
         *,
-        allow: Sequence[Literal["nan"]] | Sequence[Any] = (),
+        allow: Sequence[Literal["nan"]] = (),
         ensure_ascii: bool = False,
         indent: int | str | None = None,
         item_separator: str = ", ",

@@ -2,19 +2,12 @@
 """JSON with Comments module."""
 from __future__ import annotations
 
-__all__: list[str] = [
-    "JSONDecodeError",
-    "JSONDecoder",
-    "JSONEncoder",
-    "dump",
-    "dumps",
-    "load",
-    "loads",
-]
+__all__: list[str] = ["dump", "dumps", "load", "loads"]
 
 from codecs import (
     BOM_UTF8, BOM_UTF16_BE, BOM_UTF16_LE, BOM_UTF32_BE, BOM_UTF32_LE,
 )
+from os.path import realpath
 from typing import TYPE_CHECKING, Any, Literal
 
 from jsonc.decoder import JSONDecodeError, JSONDecoder
@@ -31,7 +24,7 @@ def dump(  # noqa: PLR0913
     obj: Any,
     fp: SupportsWrite[str],
     *,
-    allow: Sequence[Literal["nan"]] | Sequence[Any] = (),
+    allow: Sequence[Literal["nan"]] = (),
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
@@ -54,7 +47,7 @@ def dump(  # noqa: PLR0913
 def dumps(  # noqa: PLR0913
     obj: Any,
     *,
-    allow: Sequence[Literal["nan"]] | Sequence[Any] = (),
+    allow: Sequence[Literal["nan"]] = (),
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
@@ -102,17 +95,20 @@ def _decode_bytes(b: bytearray | bytes) -> str:
     return b.decode(encoding, "surrogatepass")
 
 
-def load(fp: SupportsRead[bytes | str]) -> Any:
+def load(fp: SupportsRead[bytearray | bytes | str]) -> Any:
     """Deserialize a JSON file to a Python object."""
-    return loads(fp.read())
+    return loads(fp.read(), filename=getattr(fp, "name", "<unknown>"))
 
 
-def loads(s: bytearray | bytes | str) -> Any:
+def loads(s: bytearray | bytes | str, *, filename: str = "<unknown>") -> Any:
     """Deserialize a JSON document to a Python object."""
+    if not filename.startswith("<") and not filename.endswith(">"):
+        filename = realpath(filename)
+
     if not isinstance(s, str):
         s = _decode_bytes(s)
     elif s.startswith("\ufeff"):
         msg: str = "Unexpected UTF-8 BOM (decode using utf-8-sig)"
-        raise JSONDecodeError(msg, s, 0)
+        raise JSONDecodeError(msg, filename, s, 0)
 
-    return JSONDecoder().decode(s)
+    return JSONDecoder().decode(s, filename=filename)
