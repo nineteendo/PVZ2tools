@@ -8,17 +8,17 @@ __all__ = ["JSONNamespace", "register", "run"]
 import sys
 from argparse import ArgumentParser
 from pathlib import Path
-from sys import stdin, stdout
+from sys import stdin
 
-from jsonc import dumps, loads
-from jsonc.scanner import JSONSyntaxError, format_error
+from json0 import dumps, loads
+from json0.scanner import JSONSyntaxError, format_error
 from typing_extensions import Any
 
 
 class JSONNamespace:  # pylint: disable=R0903
     """JSON namespace."""
 
-    allow: str | None
+    allow: list[str]
     compact: bool
     ensure_ascii: bool
     indent: int | str | None
@@ -29,7 +29,6 @@ class JSONNamespace:  # pylint: disable=R0903
 def register(parser: ArgumentParser) -> None:
     """Register JSON tool."""
     parser.add_argument("filename", nargs="?")
-    parser.add_argument("--allow", help="comments,nan,trailing_commas")
     parser.add_argument("--compact", action="store_true")
     parser.add_argument("--ensure-ascii", action="store_true")
     group = parser.add_mutually_exclusive_group()
@@ -40,6 +39,13 @@ def register(parser: ArgumentParser) -> None:
         const="\t",
         dest="indent",
         help="indent using tabs",
+    )
+    parser.add_argument(
+        "--nonstrict",
+        action="store_const",
+        const=["comments", "duplicate_keys", "nan", "trailing_comma"],
+        default=[],
+        dest="allow",
     )
     parser.add_argument("--sort-keys", action="store_true")
 
@@ -55,9 +61,8 @@ def run(args: JSONNamespace) -> None:
     else:
         filename, input_json = "<stdin>", stdin.buffer.read()
 
-    allow: list[str] = args.allow.split(",") if args.allow else []
     try:
-        obj: Any = loads(input_json, allow=allow, filename=filename)
+        obj: Any = loads(input_json, allow=args.allow, filename=filename)
     except JSONSyntaxError as exc:
         raise SystemExit(format_error(exc)) from None
 
@@ -70,9 +75,7 @@ def run(args: JSONNamespace) -> None:
         key_separator=":" if args.compact else ": ",
         sort_keys=args.sort_keys,
     )
-    stdout.write(output_json)
-    if stdout.isatty():
-        print()
+    print(output_json)
 
 
 def _main() -> None:

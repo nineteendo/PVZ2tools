@@ -12,6 +12,6 @@ if __name__ == "__main__":
         name="pyvz2-dependencies",
         version="0.1.0",
         packages=find_packages(),
-        ext_modules=[Extension("_jsonc", ["jsonc/_accelerator.c"])],
+        ext_modules=[Extension("_json0", ["json0/_accelerator.c"])],
         install_requires=["typing_extensions"],
     )

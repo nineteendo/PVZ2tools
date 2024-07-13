@@ -15,7 +15,7 @@ from typing_extensions import Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from jsonc.decoder import JSONDecoder
+    from json0.decoder import JSONDecoder
 
 _match_number: Callable[[str, int], Match[str] | None] = re.compile(
     r"(-?(?:0|[1-9]\d*))(\.\d+)?([eE][-+]?\d+)?", VERBOSE | MULTILINE | DOTALL,
@@ -74,7 +74,7 @@ class JSONSyntaxError(SyntaxError):
 
 
 try:
-    from jsonc._accelerator import make_scanner
+    from json0._accelerator import make_scanner
 except ImportError:
     # pylint: disable-next=R0915
     def make_scanner(context: JSONDecoder) -> (   # noqa: C901, PLR0915

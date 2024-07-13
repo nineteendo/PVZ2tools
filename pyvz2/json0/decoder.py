@@ -2,13 +2,13 @@
 """JSON decoder."""
 from __future__ import annotations
 
-__all__: list[str] = ["JSONDecoder"]
+__all__: list[str] = ["DuplicateKey", "JSONDecoder"]
 
 import re
 from re import DOTALL, MULTILINE, VERBOSE, Match, RegexFlag
 from typing import TYPE_CHECKING
 
-from jsonc.scanner import JSONSyntaxError, make_scanner
+from json0.scanner import JSONSyntaxError, make_scanner
 from typing_extensions import Any, Literal
 
 if TYPE_CHECKING:
@@ -45,7 +45,7 @@ def _unescape_unicode(filename: str, s: str, pos: int) -> int:
 
 try:
     # pylint: disable-next=C0412
-    from jsonc._accelerator import scanstring
+    from json0._accelerator import scanstring
 except ImportError:
     def scanstring(filename: str, s: str, end: int, /) -> (  # noqa: C901
         tuple[str, int]
@@ -146,8 +146,21 @@ def _skip_comments(context: JSONDecoder, filename: str, s: str, end: int) -> (
             return end
 
 
-# pylint: disable-next=R0913
-def parse_object(  # noqa: C901, PLR0917, PLR0913
+try:
+    from json0._accelerator import DuplicateKey  # type: ignore
+except ImportError:
+    class DuplicateKey(str):
+        """Duplicate key."""
+
+        __slots__: tuple[()] = ()
+
+        def __hash__(self) -> int:
+            """Return hash."""
+            return id(self)
+
+
+# pylint: disable-next=R0913, R0912
+def parse_object(  # noqa: C901, PLR0917, PLR0913, PLR0912
     context: JSONDecoder,
     filename: str,
     s: str,
@@ -169,10 +182,14 @@ def parse_object(  # noqa: C901, PLR0917, PLR0913
         key_idx: int = end
         key, end = scanstring(filename, s, end + 1)
 
-        # Reduce memory consumption
-        if (key := memoize(key, key)) in result:
+        if key not in result:
+            # Reduce memory consumption
+            key = memoize(key, key)
+        elif not context.allow_duplicate_keys:
             msg = "Duplicate keys aren't allowed"
             raise JSONSyntaxError(msg, filename, s, key_idx)
+        else:
+            key = DuplicateKey(key)
 
         if s[end:end + 1] != ":":
             colon_idx: int = end
@@ -200,7 +217,7 @@ def parse_object(  # noqa: C901, PLR0917, PLR0913
                 msg = "Expecting string"
                 raise JSONSyntaxError(msg, filename, s, end)
 
-            if not context.allow_trailing_commas:
+            if not context.allow_trailing_comma:
                 msg = "Trailing comma's aren't allowed"
                 raise JSONSyntaxError(msg, filename, s, comma_idx)
 
@@ -237,28 +254,28 @@ def parse_array(
         comma_idx = end
         end = _skip_comments(context, filename, s, end + 1)
         if s[end:end + 1] == "]":
-            if context.allow_trailing_commas:
+            if context.allow_trailing_comma:
                 return values, end + 1
 
             msg = "Trailing comma's aren't allowed"
             raise JSONSyntaxError(msg, filename, s, comma_idx)
 
 
-class JSONDecoder:  # pylint: disable=R0903
+class JSONDecoder:  # pylint: disable=R0903, R0902
     """JSON decoder."""
 
-    # TODO(Nice Zombies): allow={"duplicate_keys"}
     def __init__(
         self,
         *,
         allow: Container[Literal[
-            "comments", "nan", "trailing_commas",
+            "comments", "duplicate_keys", "nan", "trailing_comma",
         ] | str] = (),
     ) -> None:
         """Create new JSON decoder."""
         self.allow_comments: bool = "comments" in allow
+        self.allow_duplicate_keys: bool = "duplicate_keys" in allow
         self.allow_nan: bool = "nan" in allow
-        self.allow_trailing_commas: bool = "trailing_commas" in allow
+        self.allow_trailing_comma: bool = "trailing_comma" in allow
         self.parse_array: Callable[[
             JSONDecoder, str, str, int,
             Callable[[str, str, int], tuple[Any, int]],

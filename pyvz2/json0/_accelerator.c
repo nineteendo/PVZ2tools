@@ -1,4 +1,4 @@
-/* JSON accelerator C extensor: _jsonc module. */
+/* JSON accelerator C extensor: _json0 module. */
 
 #include <Python.h>
 #include <structmember.h>
@@ -21,14 +21,16 @@
 typedef struct _PyScannerObject {
     PyObject_HEAD
     int allow_comments;
+    int allow_duplicate_keys;
     int allow_nan;
-    int allow_trailing_commas;
+    int allow_trailing_comma;
 } PyScannerObject;
 
 static PyMemberDef scanner_members[] = {
     {"allow_comments", Py_T_BOOL, offsetof(PyScannerObject, allow_comments), Py_READONLY, "allow_comments"},
+    {"allow_duplicate_keys", Py_T_BOOL, offsetof(PyScannerObject, allow_duplicate_keys), Py_READONLY, "allow_duplicate_keys"},
     {"allow_nan", Py_T_BOOL, offsetof(PyScannerObject, allow_nan), Py_READONLY, "allow_nan"},
-    {"allow_trailing_commas", Py_T_BOOL, offsetof(PyScannerObject, allow_trailing_commas), Py_READONLY, "allow_trailing_commas"},
+    {"allow_trailing_comma", Py_T_BOOL, offsetof(PyScannerObject, allow_trailing_comma), Py_READONLY, "allow_trailing_comma"},
     {NULL}
 };
 
@@ -56,6 +58,17 @@ static PyMemberDef encoder_members[] = {
     {"sort_keys", Py_T_BOOL, offsetof(PyEncoderObject, sort_keys), Py_READONLY, "sort_keys"},
     {"skipkeys", Py_T_BOOL, offsetof(PyEncoderObject, skipkeys), Py_READONLY, "skipkeys"},
     {NULL}
+};
+
+static Py_hash_t duplicatekey_hash(PyUnicodeObject *self) {
+    return (Py_hash_t)self;
+}
+
+static PyTypeObject PyDuplicateKeyType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "_json0.DuplicateKey",
+    .tp_doc = PyDoc_STR("Duplicate key"),
+    .tp_hash = (hashfunc)duplicatekey_hash,
 };
 
 /* Forward decls */
@@ -355,7 +368,7 @@ static void
 raise_errmsg(const char *msg, PyObject *filename, PyObject *s, Py_ssize_t end)
 {
     /* Use JSONSyntaxError exception to raise a nice looking SyntaxError subclass */
-    PyObject *JSONSyntaxError = _PyImport_GetModuleAttrString("jsonc.scanner",
+    PyObject *JSONSyntaxError = _PyImport_GetModuleAttrString("json0.scanner",
                                                               "JSONSyntaxError");
     if (JSONSyntaxError == NULL) {
         return;
@@ -723,7 +736,7 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
     /* only loop if the object is non-empty */
     if (idx > end_idx || PyUnicode_READ(kind, str, idx) != '}') {
         while (1) {
-            PyObject *memokey;
+            PyObject *new_key;
 
             /* read key */
             if (idx > end_idx || PyUnicode_READ(kind, str, idx) != '"') {
@@ -733,13 +746,18 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
             key = scanstring_unicode(pyfilename, pystr, idx + 1, &next_idx);
             if (key == NULL)
                 goto bail;
-            memokey = PyDict_SetDefault(memo, key, key);
-            Py_SETREF(key, Py_NewRef(memokey));
-            if (PyDict_Contains(rval, key)) {
+            if (!PyDict_Contains(rval, key)) {
+                new_key = PyDict_SetDefault(memo, key, key);
+            }
+            else  if (!s->allow_duplicate_keys) {
                 raise_errmsg("Duplicate keys aren't allowed", pyfilename, pystr, idx);
                 goto bail;
             }
-            if (memokey == NULL) {
+            else {
+                new_key = PyObject_CallOneArg(&PyDuplicateKeyType, key);
+            }
+            Py_SETREF(key, Py_NewRef(new_key));
+            if (key == NULL) {
                 goto bail;
             }
             colon_idx = idx = next_idx;
@@ -789,7 +807,7 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
             }
 
             if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == '}') {
-                if (s->allow_trailing_commas) {
+                if (s->allow_trailing_comma) {
                     break;
                 }
                 raise_errmsg("Trailing comma's aren't allowed", pyfilename, pystr, comma_idx);
@@ -873,7 +891,7 @@ _parse_array_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, P
             }
 
             if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == ']') {
-                if (s->allow_trailing_commas) {
+                if (s->allow_trailing_comma) {
                     break;
                 }
                 raise_errmsg("Trailing comma's aren't allowed", pyfilename, pystr, comma_idx);
@@ -1156,8 +1174,9 @@ scanner_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     PyScannerObject *s;
     PyObject *ctx;
     PyObject *allow_comments;
+    PyObject *allow_duplicate_keys;
     PyObject *allow_nan;
-    PyObject *allow_trailing_commas;
+    PyObject *allow_trailing_comma;
     static char *kwlist[] = {"context", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O:make_scanner", kwlist, &ctx))
@@ -1176,6 +1195,13 @@ scanner_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     Py_DECREF(allow_comments);
     if (s->allow_comments < 0)
         goto bail;
+    allow_duplicate_keys = PyObject_GetAttrString(ctx, "allow_duplicate_keys");
+    if (allow_duplicate_keys == NULL)
+        goto bail;
+    s->allow_duplicate_keys = PyObject_IsTrue(allow_duplicate_keys);
+    Py_DECREF(allow_duplicate_keys);
+    if (s->allow_duplicate_keys < 0)
+        goto bail;
     allow_nan = PyObject_GetAttrString(ctx, "allow_nan");
     if (allow_nan == NULL)
         goto bail;
@@ -1183,12 +1209,12 @@ scanner_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     Py_DECREF(allow_nan);
     if (s->allow_nan < 0)
         goto bail;
-    allow_trailing_commas = PyObject_GetAttrString(ctx, "allow_trailing_commas");
-    if (allow_trailing_commas == NULL)
+    allow_trailing_comma = PyObject_GetAttrString(ctx, "allow_trailing_comma");
+    if (allow_trailing_comma == NULL)
         goto bail;
-    s->allow_trailing_commas = PyObject_IsTrue(allow_trailing_commas);
-    Py_DECREF(allow_trailing_commas);
-    if (s->allow_trailing_commas < 0)
+    s->allow_trailing_comma = PyObject_IsTrue(allow_trailing_comma);
+    Py_DECREF(allow_trailing_comma);
+    if (s->allow_trailing_comma < 0)
         goto bail;
     return (PyObject *)s;
 
@@ -1211,7 +1237,7 @@ static PyType_Slot PyScannerType_slots[] = {
 };
 
 static PyType_Spec PyScannerType_spec = {
-    .name = "_jsonc.Scanner",
+    .name = "_json0.Scanner",
     .basicsize = sizeof(PyScannerObject),
     .itemsize = 0,
     .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
@@ -1807,7 +1833,7 @@ static PyType_Slot PyEncoderType_slots[] = {
 };
 
 static PyType_Spec PyEncoderType_spec = {
-    .name = "_jsonc.Encoder",
+    .name = "_json0.Encoder",
     .basicsize = sizeof(PyEncoderObject),
     .itemsize = 0,
     .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
@@ -1856,6 +1882,17 @@ _json_exec(PyObject *module)
         return -1;
     }
 
+    PyDuplicateKeyType.tp_base = &PyUnicode_Type;
+    if (PyType_Ready(&PyDuplicateKeyType) < 0) {
+        return -1;
+    }
+    Py_INCREF(&PyDuplicateKeyType);
+    rc = PyModule_AddObject(module, "DuplicateKey", (PyObject *) &PyDuplicateKeyType);
+    if (rc < 0) {
+        Py_DECREF(&PyDuplicateKeyType);
+        return -1;
+    }
+
     return 0;
 }
 
@@ -1872,14 +1909,14 @@ static PyModuleDef_Slot _json_slots[] = {
 
 static struct PyModuleDef jsonmodule = {
     .m_base = PyModuleDef_HEAD_INIT,
-    .m_name = "_jsonc",
+    .m_name = "_json0",
     .m_doc = module_doc,
     .m_methods = speedups_methods,
     .m_slots = _json_slots,
 };
 
 PyMODINIT_FUNC
-PyInit__jsonc(void)
+PyInit__json0(void)
 {
     return PyModuleDef_Init(&jsonmodule);
 }

@@ -1,5 +1,5 @@
 # Copyright (C) 2024 Nice Zombies
-"""JSON with Comments module."""
+"""JSON Zero module."""
 from __future__ import annotations
 
 __all__: list[str] = ["dump", "dumps", "load", "loads"]
@@ -10,9 +10,9 @@ from codecs import (
 from os.path import realpath
 from typing import TYPE_CHECKING
 
-from jsonc.decoder import JSONDecoder
-from jsonc.encoder import JSONEncoder
-from jsonc.scanner import JSONSyntaxError
+from json0.decoder import JSONDecoder
+from json0.encoder import JSONEncoder
+from json0.scanner import JSONSyntaxError
 from typing_extensions import Any, Literal
 
 if TYPE_CHECKING:
@@ -100,7 +100,9 @@ def _decode_bytes(b: bytearray | bytes) -> str:
 def load(
     fp: SupportsRead[bytearray | bytes | str],
     *,
-    allow: Container[Literal["comments", "nan", "trailing_commas"] | str] = (),
+    allow: Container[
+        Literal["comments", "duplicate_keys", "nan", "trailing_comma"] | str
+    ] = (),
 ) -> Any:
     """Deserialize a JSON file to a Python object."""
     return loads(
@@ -111,7 +113,9 @@ def load(
 def loads(
     s: bytearray | bytes | str,
     *,
-    allow: Container[Literal["comments", "nan", "trailing_commas"] | str] = (),
+    allow: Container[
+        Literal["comments", "duplicate_keys", "nan", "trailing_comma"] | str
+    ] = (),
     filename: str = "<string>",
 ) -> Any:
     """Deserialize a JSON document to a Python object."""
