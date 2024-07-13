@@ -158,6 +158,8 @@ except ImportError:
         def scan_once(filename: str, s: str, idx: int) -> tuple[Any, int]:
             try:
                 return _scan_once(filename, s, idx)
+            except JSONSyntaxError as exc:
+                raise exc.with_traceback(None) from None
             finally:
                 memo.clear()
 

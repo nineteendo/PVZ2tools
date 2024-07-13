@@ -296,11 +296,7 @@ class JSONDecoder:  # pylint: disable=R0903, R0902
     def decode(self, s: str, *, filename: str = "<string>") -> Any:
         """Decode a JSON document."""
         end: int = _skip_comments(self, filename, s, 0)
-        try:
-            obj, end = self.scan_once(filename, s, end)
-        except JSONSyntaxError as exc:
-            raise exc.with_traceback(None) from None
-
+        obj, end = self.scan_once(filename, s, end)
         if (end := _skip_comments(self, filename, s, end)) < len(s):
             msg: str = "Extra data"
             raise JSONSyntaxError(msg, filename, s, end)
