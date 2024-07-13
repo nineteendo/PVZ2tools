@@ -3,7 +3,7 @@
 """JSON accelerator."""
 from __future__ import annotations
 
-__all__: list[str] = ["make_scanner", "parse_string"]
+__all__: list[str] = ["make_scanner", "scanstring"]
 
-# pylint: disable=E0611, E0401
-from _jsonc import make_scanner, parse_string  # type: ignore # noqa: PLC2701
+# pylint: disable-next=E0611, E0401
+from _jsonc import make_scanner, scanstring  # type: ignore # noqa: PLC2701

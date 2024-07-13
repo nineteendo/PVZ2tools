@@ -8,13 +8,15 @@ from codecs import (
     BOM_UTF8, BOM_UTF16_BE, BOM_UTF16_LE, BOM_UTF32_BE, BOM_UTF32_LE,
 )
 from os.path import realpath
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING
 
-from jsonc.decoder import JSONDecodeError, JSONDecoder
+from jsonc.decoder import JSONDecoder
 from jsonc.encoder import JSONEncoder
+from jsonc.scanner import JSONSyntaxError
+from typing_extensions import Any, Literal
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Container
 
     from _typeshed import SupportsRead, SupportsWrite
 
@@ -24,7 +26,7 @@ def dump(  # noqa: PLR0913
     obj: Any,
     fp: SupportsWrite[str],
     *,
-    allow: Sequence[Literal["nan"]] = (),
+    allow: Container[Literal["nan"] | str] = (),
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
@@ -47,7 +49,7 @@ def dump(  # noqa: PLR0913
 def dumps(  # noqa: PLR0913
     obj: Any,
     *,
-    allow: Sequence[Literal["nan"]] = (),
+    allow: Container[Literal["nan"] | str] = (),
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
@@ -95,12 +97,23 @@ def _decode_bytes(b: bytearray | bytes) -> str:
     return b.decode(encoding, "surrogatepass")
 
 
-def load(fp: SupportsRead[bytearray | bytes | str]) -> Any:
+def load(
+    fp: SupportsRead[bytearray | bytes | str],
+    *,
+    allow: Container[Literal["comments", "nan", "trailing_commas"] | str] = (),
+) -> Any:
     """Deserialize a JSON file to a Python object."""
-    return loads(fp.read(), filename=getattr(fp, "name", "<unknown>"))
+    return loads(
+        fp.read(), allow=allow, filename=getattr(fp, "name", "<string>"),
+    )
 
 
-def loads(s: bytearray | bytes | str, *, filename: str = "<unknown>") -> Any:
+def loads(
+    s: bytearray | bytes | str,
+    *,
+    allow: Container[Literal["comments", "nan", "trailing_commas"] | str] = (),
+    filename: str = "<string>",
+) -> Any:
     """Deserialize a JSON document to a Python object."""
     if not filename.startswith("<") and not filename.endswith(">"):
         filename = realpath(filename)
@@ -108,7 +121,7 @@ def loads(s: bytearray | bytes | str, *, filename: str = "<unknown>") -> Any:
     if not isinstance(s, str):
         s = _decode_bytes(s)
     elif s.startswith("\ufeff"):
-        msg: str = "Unexpected UTF-8 BOM (decode using utf-8-sig)"
-        raise JSONDecodeError(msg, filename, s, 0)
+        msg: str = "Unexpected UTF-8 BOM"
+        raise JSONSyntaxError(msg, filename, s, 0)
 
-    return JSONDecoder().decode(s, filename=filename)
+    return JSONDecoder(allow=allow).decode(s, filename=filename)

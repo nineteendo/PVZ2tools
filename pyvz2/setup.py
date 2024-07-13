@@ -13,4 +13,5 @@ if __name__ == "__main__":
         version="0.1.0",
         packages=find_packages(),
         ext_modules=[Extension("_jsonc", ["jsonc/_accelerator.c"])],
+        install_requires=["typing_extensions"],
     )

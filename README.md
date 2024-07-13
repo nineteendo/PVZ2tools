@@ -19,7 +19,8 @@ def loads(data,
 # jsonc.py
 def dumps(obj,
           *,
-          allow=(),             # comments, nan, trailing_comma
+          align_items=False,    # True -> override indent
+          allow=(),             # comments, duplicate_keys, nan, trailing_commas
           ensure_ascii=False,
           indent=None,
           item_separator=', ',  # indent not None -> strip trailing whitespace
@@ -29,6 +30,6 @@ def dumps(obj,
 
 def loads(data,
           *,
-          allow=(),  # comments, nan, trailing_comma
+          allow=(),  # comments, duplicate_keys, nan, trailing_commas
           ): ...
 ```

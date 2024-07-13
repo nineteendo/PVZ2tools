@@ -3,41 +3,37 @@
 """JSON tool."""
 from __future__ import annotations
 
-__all__ = ["JSONNamespace", "configure", "run"]
+__all__ = ["JSONNamespace", "register", "run"]
 
 import sys
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser
 from pathlib import Path
 from sys import stdin, stdout
-from typing import TYPE_CHECKING, Any, Literal, cast
 
 from jsonc import dumps, loads
+from jsonc.scanner import JSONSyntaxError, format_error
+from typing_extensions import Any
 
-if TYPE_CHECKING:
-    from collections.abc import Sequence
 
-
-class JSONNamespace(Namespace):  # pylint: disable=R0903
+class JSONNamespace:  # pylint: disable=R0903
     """JSON namespace."""
 
-    allow: Sequence[Literal["nan"]]
+    allow: str | None
     compact: bool
     ensure_ascii: bool
     indent: int | str | None
-    json_file: str | None
+    filename: str | None
     sort_keys: bool
 
 
-def configure(parser: ArgumentParser) -> None:
-    """Configure JSON tool."""
-    parser.add_argument("json_file", nargs="?", default=None)
-    parser.add_argument(
-        "--allow", action="append", default=[], choices=["nan"],
-    )
+def register(parser: ArgumentParser) -> None:
+    """Register JSON tool."""
+    parser.add_argument("filename", nargs="?")
+    parser.add_argument("--allow", help="comments,nan,trailing_commas")
     parser.add_argument("--compact", action="store_true")
     parser.add_argument("--ensure-ascii", action="store_true")
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--indent", default=None, type=int, metavar="SPACES")
+    group.add_argument("--indent", type=int, metavar="SPACES")
     group.add_argument(
         "--tab",
         action="store_const",
@@ -51,36 +47,39 @@ def configure(parser: ArgumentParser) -> None:
 def run(args: JSONNamespace) -> None:
     """Run JSON tool."""
     input_json: bytes | str
-    if args.json_file:
-        filename = args.json_file
+    if args.filename:
+        filename: str = args.filename
         input_json = Path(filename).read_bytes()
     elif stdin.isatty():
         filename, input_json = "<stdin>", "\n".join(iter(input, ""))
     else:
         filename, input_json = "<stdin>", stdin.buffer.read()
 
+    allow: list[str] = args.allow.split(",") if args.allow else []
     try:
-        obj: Any = loads(input_json, filename=filename)
-        output_json: str = dumps(
-            obj,
-            allow=args.allow,
-            ensure_ascii=args.ensure_ascii,
-            indent=args.indent,
-            item_separator="," if args.compact else ", ",
-            key_separator=":" if args.compact else ": ",
-            sort_keys=args.sort_keys,
-        )
-    except ValueError as e:
-        raise SystemExit(e) from None
+        obj: Any = loads(input_json, allow=allow, filename=filename)
+    except JSONSyntaxError as exc:
+        raise SystemExit(format_error(exc)) from None
 
+    output_json: str = dumps(
+        obj,
+        allow=["nan"],
+        ensure_ascii=args.ensure_ascii,
+        indent=args.indent,
+        item_separator="," if args.compact else ", ",
+        key_separator=":" if args.compact else ": ",
+        sort_keys=args.sort_keys,
+    )
     stdout.write(output_json)
+    if stdout.isatty():
+        print()
 
 
 def _main() -> None:
+    parser: ArgumentParser = ArgumentParser()
+    register(parser)
     try:
-        parser: ArgumentParser = ArgumentParser()
-        configure(parser)
-        run(cast(JSONNamespace, parser.parse_args()))
+        run(parser.parse_args(namespace=JSONNamespace()))
     except BrokenPipeError as exc:
         sys.exit(exc.errno)
 

@@ -2,63 +2,20 @@
 """JSON decoder."""
 from __future__ import annotations
 
-__all__: list[str] = ["JSONDecodeError", "JSONDecoder"]
+__all__: list[str] = ["JSONDecoder"]
 
 import re
-from re import DOTALL, MULTILINE, VERBOSE, Match, Pattern, RegexFlag
-from shutil import get_terminal_size
-from typing import TYPE_CHECKING, Any
+from re import DOTALL, MULTILINE, VERBOSE, Match, RegexFlag
+from typing import TYPE_CHECKING
 
-from jsonc.scanner import make_scanner
+from jsonc.scanner import JSONSyntaxError, make_scanner
+from typing_extensions import Any, Literal
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Container
 
 FLAGS: RegexFlag = VERBOSE | MULTILINE | DOTALL
-
-
-def _get_err_context(doc: str, pos: int) -> tuple[str, str]:
-    line_start: int = doc.rfind("\n", 0, pos) + 1
-    if (line_end := doc.find("\n", pos)) == -1:
-        line_end = len(doc)
-
-    max_chars: int = get_terminal_size().columns - 4  # leading spaces
-    min_start: int = min(line_end - max_chars, pos - max_chars // 2)
-    max_end: int = max(line_start + max_chars, pos + max_chars // 2)
-    context_start: int = max(min_start, line_start)
-    context_end: int = min(line_end, max_end)
-    context: str = doc[context_start:context_end]
-    if context_start > line_start:
-        context = "..." + context[3:]
-
-    if context_end < line_end:
-        context = context[:-3] + "..."
-
-    caret_line: str = " " * (pos - context_start) + "^"
-    return context, caret_line
-
-
-class JSONDecodeError(ValueError):
-    """JSON decode error."""
-
-    def __init__(self, msg: str, filename: str, doc: str, pos: int) -> None:
-        """Create new JSON decode error."""
-        lineno: int = doc.count("\n", 0, pos) + 1
-        colno: int = pos - doc.rfind("\n", 0, pos)
-        context, caret_line = _get_err_context(doc, pos)
-        errmsg: str = f"""\
-{msg}
-  File {filename!r}, line {lineno:d}, column {colno:d}
-    {context}
-    {caret_line}\
-"""
-        super().__init__(errmsg)
-
-
-STRINGCHUNK: Pattern[str] = re.compile(
-    r'([^"\\\x00-\x1f]*)(["\\\x00-\x1f])', FLAGS,
-)
-BACKSLASH: dict[str, str] = {
+UNESCAPE: dict[str, str] = {
     '"': '"',
     "\\": "\\",
     "/": "/",
@@ -69,72 +26,80 @@ BACKSLASH: dict[str, str] = {
     "t": "\t",
 }
 
+_match_chunk: Callable[[str, int], Match[str] | None] = re.compile(
+    r'[^"\\\x00-\x1f]+', FLAGS,
+).match
 
-def _decode_unicode_escape(filename: str, s: str, pos: int) -> int:
-    esc: str = s[pos + 1:pos + 5]
+
+def _unescape_unicode(filename: str, s: str, pos: int) -> int:
+    esc: str = s[pos:pos + 4]
     if len(esc) == 4 and esc[1] not in "xX":
         try:
             return int(esc, 16)
         except ValueError:
             pass
 
-    msg: str = r"Invalid \uXXXX escape"
-    raise JSONDecodeError(msg, filename, s, pos)
+    msg: str = "Expecting 4 hex digits"
+    raise JSONSyntaxError(msg, filename, s, pos)
 
 
 try:
-    from jsonc._accelerator import parse_string
+    # pylint: disable-next=C0412
+    from jsonc._accelerator import scanstring
 except ImportError:
-    # pylint: disable-next=R0914
-    def parse_string(filename: str, s: str, end: int, /) -> (  # noqa: C901
+    def scanstring(filename: str, s: str, end: int, /) -> (  # noqa: C901
         tuple[str, int]
     ):
-        """Parse JSON string."""
-        backslash: dict[str, str] = BACKSLASH
-        match_str: Callable[[str, int], Match[str] | None] = STRINGCHUNK.match
+        """Scan JSON string."""
         chunks: list[str] = []
         append_chunk: Callable[[str], None] = chunks.append
-        begin: int = end - 1
+        str_idx: int = end - 1
         while True:
-            if not (chunk := match_str(s, end)):
-                msg = "Unterminated string starting at"
-                raise JSONDecodeError(msg, filename, s, begin)
-
-            end = chunk.end()
-            content, terminator = chunk.groups()
-            # Content contains zero or more unescaped string characters
-            if content:
-                append_chunk(content)
+            # Match one or more unescaped string characters
+            if match := _match_chunk(s, end):
+                end = match.end()
+                append_chunk(match.group())
 
             # Terminator is the end of string, a literal control character,
             # or a backslash denoting that an escape sequence follows
+            try:
+                terminator: str = s[end]
+            except IndexError:
+                msg: str = "Unterminated string"
+                raise JSONSyntaxError(msg, filename, s, str_idx) from None
+
             if terminator == '"':
-                break
+                return "".join(chunks), end + 1
 
             if terminator != "\\":
-                msg = f"Invalid control character {terminator!r} at"
-                raise JSONDecodeError(msg, filename, s, end)
+                if terminator == "\n":
+                    msg = "Unterminated string"
+                    raise JSONSyntaxError(msg, filename, s, str_idx)
 
+                msg = "Unescaped control character"
+                raise JSONSyntaxError(msg, filename, s, end)
+
+            end += 1
             try:
                 esc = s[end]
             except IndexError:
-                msg = "Unterminated string starting at"
-                raise JSONDecodeError(msg, filename, s, begin) from None
+                msg = "Invalid backslash escape"
+                raise JSONSyntaxError(msg, filename, s, end) from None
 
             # If not a unicode escape sequence, must be in the lookup table
             if esc != "u":
                 try:
-                    char = backslash[esc]
+                    char = UNESCAPE[esc]
                 except KeyError:
-                    msg = rf"Invalid \escape: {esc!r}"
-                    raise JSONDecodeError(msg, filename, s, end) from None
+                    msg = "Invalid backslash escape"
+                    raise JSONSyntaxError(msg, filename, s, end) from None
 
                 end += 1
             else:
-                uni: int = _decode_unicode_escape(filename, s, end)
+                uni: int = _unescape_unicode(filename, s, end + 1)
                 end += 5
                 if 0xd800 <= uni <= 0xdbff and s[end:end + 2] == r"\u":
-                    uni2: int = _decode_unicode_escape(filename, s, end + 1)
+                    uni2: int = _unescape_unicode(filename, s, end + 2)
                     if 0xdc00 <= uni2 <= 0xdfff:
                         uni = ((uni - 0xd800) << 10) | (uni2 - 0xdc00)
                         uni += 0x10000
@@ -144,195 +109,182 @@ except ImportError:
 
             append_chunk(char)
 
-        return "".join(chunks), end
+
+_match_whitespace: Callable[[str, int], Match[str] | None] = re.compile(
+    r"[ \t\n\r]+", FLAGS,
+).match
 
 
-WHITESPACE: Pattern[str] = re.compile(r"[ \t\n\r]*", FLAGS)
-WHITESPACE_STR: str = " \t\n\r"
+def _skip_comments(context: JSONDecoder, filename: str, s: str, end: int) -> (
+    int
+):
+    while True:
+        if match := _match_whitespace(s, end):
+            end = match.end()
+
+        if (comment_prefix := s[end:end + 2]) == "//":
+            if not context.allow_comments:
+                msg: str = "Comments aren't allowed"
+                raise JSONSyntaxError(msg, filename, s, end)
+
+            if (end := s.find("\n", end + 2)) == -1:
+                return len(s)
+
+            end += 1
+        elif comment_prefix == "/*":
+            if not context.allow_comments:
+                msg = "Comments aren't allowed"
+                raise JSONSyntaxError(msg, filename, s, end)
+
+            comment_idx: int = end
+            if (end := s.find("*/", end + 2)) == -1:
+                msg = "Unterminated comment"
+                raise JSONSyntaxError(msg, filename, s, comment_idx)
+
+            end += 2
+        else:
+            return end
 
 
-# pylint: disable-next=R0912, R0915, R0914
-def parse_object(  # noqa: C901, PLR0912, PLR0915
-    filename: str, s: str, end: int,
+# pylint: disable-next=R0913
+def parse_object(  # noqa: C901, PLR0917, PLR0913
+    context: JSONDecoder,
+    filename: str,
+    s: str,
+    end: int,
     scan_once: Callable[[str, str, int], tuple[Any, int]],
-    memo: dict[str, str],
+    memoize: Callable[[str, str], str],
 ) -> tuple[dict[str, Any], int]:
     """Parse JSON object."""
-    match_whitespace: Callable[
-        [str, int], Match[str],
-    ] = WHITESPACE.match  # type: ignore
-    whitespace_str: str = WHITESPACE_STR
-    pairs: list[tuple[str, Any]] = []
-    append_pair: Callable[[tuple[str, Any]], None] = pairs.append
-    memo_get: Callable[[str, str], str] = memo.setdefault
-    # Use a slice to prevent IndexError from being raised, the following
-    # check will raise a more specific ValueError if the string is empty
-    nextchar: str = s[end:end + 1]
-    # Normally we expect nextchar == '"'
-    if nextchar != '"':
-        if nextchar in whitespace_str:
-            end = match_whitespace(s, end).end()
-            nextchar = s[end:end + 1]
+    end = _skip_comments(context, filename, s, end)
+    if (nextchar := s[end:end + 1]) != '"':
+        if nextchar != "}":
+            msg: str = "Expecting string"
+            raise JSONSyntaxError(msg, filename, s, end)
 
-        # Trivial empty object
-        if nextchar == "}":
-            return {}, end + 1
+        return {}, end + 1
 
-        if nextchar != '"':
-            msg = "Expecting property name enclosed in double quotes"
-            raise JSONDecodeError(msg, filename, s, end)
-
-    end += 1
+    result: dict[str, Any] = {}
     while True:
-        key, end = parse_string(filename, s, end)
-        key = memo_get(key, key)
-        # To skip some function call overhead we optimize the fast paths where
-        # the JSON key separator is ": " or just ":".
+        key_idx: int = end
+        key, end = scanstring(filename, s, end + 1)
+
+        # Reduce memory consumption
+        if (key := memoize(key, key)) in result:
+            msg = "Duplicate keys aren't allowed"
+            raise JSONSyntaxError(msg, filename, s, key_idx)
+
         if s[end:end + 1] != ":":
-            end = match_whitespace(s, end).end()
+            colon_idx: int = end
+            end = _skip_comments(context, filename, s, end)
             if s[end:end + 1] != ":":
                 msg = "Expecting ':' delimiter"
-                raise JSONDecodeError(msg, filename, s, end)
+                raise JSONSyntaxError(msg, filename, s, colon_idx)
 
-        end += 1
-        try:
-            if s[end] in whitespace_str:
-                end += 1
-                if s[end] in whitespace_str:
-                    end = match_whitespace(s, end + 1).end()
-        except IndexError:
-            pass
+        end = _skip_comments(context, filename, s, end + 1)
+        result[key], end = scan_once(filename, s, end)
+        if s[end:end + 1] != ",":
+            comma_idx: int = end
+            end = _skip_comments(context, filename, s, end)
+            if (nextchar := s[end:end + 1]) != ",":
+                if nextchar != "}":
+                    msg = "Expecting ',' delimiter"
+                    raise JSONSyntaxError(msg, filename, s, comma_idx)
 
-        try:
-            value, end = scan_once(filename, s, end)
-        except StopIteration as err:
-            msg = "Expecting value"
-            raise JSONDecodeError(msg, filename, s, err.value) from None
+                return result, end + 1
 
-        append_pair((key, value))
-        try:
-            if (nextchar := s[end]) in whitespace_str:
-                end = match_whitespace(s, end + 1).end()
-                nextchar = s[end]
-        except IndexError:
-            nextchar = ""
-
-        end += 1
-        if nextchar == "}":
-            break
-
-        if nextchar != ",":
-            msg = "Expecting ',' delimiter"
-            raise JSONDecodeError(msg, filename, s, end - 1)
-
-        comma_idx: int = end - 1
-        end = match_whitespace(s, end).end()
-        nextchar = s[end:end + 1]
-        end += 1
-        if nextchar != '"':
+        comma_idx = end
+        end = _skip_comments(context, filename, s, end + 1)
+        if (nextchar := s[end:end + 1]) != '"':
             if nextchar != "}":
-                msg = "Expecting property name enclosed in double quotes"
-                raise JSONDecodeError(msg, filename, s, end - 1)
+                msg = "Expecting string"
+                raise JSONSyntaxError(msg, filename, s, end)
 
-            msg = "Illegal trailing comma before end of object"
-            raise JSONDecodeError(msg, filename, s, comma_idx)
+            if not context.allow_trailing_commas:
+                msg = "Trailing comma's aren't allowed"
+                raise JSONSyntaxError(msg, filename, s, comma_idx)
 
-    return dict(pairs), end
+            return result, end + 1
 
 
-def parse_array(  # noqa: C901
-    filename: str, s: str, end: int,
+def parse_array(
+    context: JSONDecoder,
+    filename: str,
+    s: str,
+    end: int,
     scan_once: Callable[[str, str, int], tuple[Any, int]],
 ) -> tuple[list[Any], int]:
     """Parse JSON array."""
-    match_whitespace: Callable[
-        [str, int], Match[str],
-    ] = WHITESPACE.match  # type: ignore
-    whitespace_str: str = WHITESPACE_STR
+    end = _skip_comments(context, filename, s, end)
+    if (nextchar := s[end:end + 1]) == "]":
+        return [], end + 1
+
     values: list[Any] = []
-    if (nextchar := s[end:end + 1]) in whitespace_str:
-        end = match_whitespace(s, end + 1).end()
-        nextchar = s[end:end + 1]
-
-    # Look-ahead for trivial empty array
-    if nextchar == "]":
-        return values, end + 1
-
     append_value: Callable[[Any], None] = values.append
     while True:
-        try:
-            value, end = scan_once(filename, s, end)
-        except StopIteration as err:
-            msg = "Expecting value"
-            raise JSONDecodeError(msg, filename, s, err.value) from None
-
+        value, end = scan_once(filename, s, end)
         append_value(value)
-        if (nextchar := s[end:end + 1]) in whitespace_str:
-            end = match_whitespace(s, end + 1).end()
-            nextchar = s[end:end + 1]
+        if s[end:end + 1] != ",":
+            comma_idx: int = end
+            end = _skip_comments(context, filename, s, end)
+            if (nextchar := s[end:end + 1]) != ",":
+                if nextchar == "]":
+                    return values, end + 1
 
-        end += 1
-        if nextchar == "]":
-            break
+                msg: str = "Expecting ',' delimiter"
+                raise JSONSyntaxError(msg, filename, s, comma_idx)
 
-        if nextchar != ",":
-            msg = "Expecting ',' delimiter"
-            raise JSONDecodeError(msg, filename, s, end - 1)
+        comma_idx = end
+        end = _skip_comments(context, filename, s, end + 1)
+        if s[end:end + 1] == "]":
+            if context.allow_trailing_commas:
+                return values, end + 1
 
-        comma_idx: int = end - 1
-        try:
-            if s[end] in whitespace_str:
-                end += 1
-                if s[end] in whitespace_str:
-                    end = match_whitespace(s, end + 1).end()
-
-            nextchar = s[end:end + 1]
-        except IndexError:
-            pass
-
-        if nextchar == "]":
-            msg = "Illegal trailing comma before end of array"
-            raise JSONDecodeError(msg, filename, s, comma_idx)
-
-    return values, end
+            msg = "Trailing comma's aren't allowed"
+            raise JSONSyntaxError(msg, filename, s, comma_idx)
 
 
 class JSONDecoder:  # pylint: disable=R0903
     """JSON decoder."""
 
-    # TODO(Nice Zombies): allow={"nan"}
-    # TODO(Nice Zombies): allow={"comments"}
-    # TODO(Nice Zombies): allow={"trailing_comma"}
-    def __init__(self) -> None:
+    # TODO(Nice Zombies): allow={"duplicate_keys"}
+    def __init__(
+        self,
+        *,
+        allow: Container[Literal[
+            "comments", "nan", "trailing_commas",
+        ] | str] = (),
+    ) -> None:
         """Create new JSON decoder."""
-        self.parse_object: Callable[[
-            str, str, int, Callable[[str, str, int], tuple[Any, int]],
-            dict[str, str],
-        ], tuple[dict[str, Any], int]] = parse_object
+        self.allow_comments: bool = "comments" in allow
+        self.allow_nan: bool = "nan" in allow
+        self.allow_trailing_commas: bool = "trailing_commas" in allow
         self.parse_array: Callable[[
-            str, str, int, Callable[[str, str, int], tuple[Any, int]],
+            JSONDecoder, str, str, int,
+            Callable[[str, str, int], tuple[Any, int]],
         ], tuple[list[Any], int]] = parse_array
-        self.parse_string: Callable[[
-            str, str, int,
-        ], tuple[str, int]] = parse_string
+        self.parse_object: Callable[[
+            JSONDecoder, str, str, int,
+            Callable[[str, str, int], tuple[Any, int]],
+            Callable[[str, str], str],
+        ], tuple[dict[str, Any], int]] = parse_object
+        self.parse_string: Callable[
+            [str, str, int], tuple[str, int],
+        ] = scanstring
         self.scan_once: Callable[
             [str, str, int], tuple[Any, int],
         ] = make_scanner(self)  # type: ignore
 
-    def decode(self, s: str, *, filename: str = "unknown") -> Any:
+    def decode(self, s: str, *, filename: str = "<string>") -> Any:
         """Decode a JSON document."""
-        match_whitespace: Callable[
-            [str, int], Match[str],
-        ] = WHITESPACE.match  # type: ignore
-        idx: int = match_whitespace(s, 0).end()
+        end: int = _skip_comments(self, filename, s, 0)
         try:
-            obj, end = self.scan_once(filename, s, idx)
-        except StopIteration as err:
-            msg = "Expecting value"
-            raise JSONDecodeError(msg, filename, s, err.value) from None
+            obj, end = self.scan_once(filename, s, end)
+        except JSONSyntaxError as exc:
+            raise exc.with_traceback(None) from None
 
-        if (end := match_whitespace(s, end).end()) < len(s):
-            msg = "Extra data"
-            raise JSONDecodeError(msg, filename, s, end)
+        if (end := _skip_comments(self, filename, s, end)) < len(s):
+            msg: str = "Extra data"
+            raise JSONSyntaxError(msg, filename, s, end)
 
         return obj

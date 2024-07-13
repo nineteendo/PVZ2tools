@@ -6,25 +6,26 @@ from __future__ import annotations
 __all__: list[str] = []
 
 import sys
-from argparse import ArgumentParser, Namespace
-from typing import Literal, assert_never, cast
+from argparse import ArgumentParser
+from typing import cast
 
 import jsonc.tool
 from jsonc.tool import JSONNamespace
+from typing_extensions import Literal, assert_never
 
 
-class _PyVZ2Namespace(Namespace):  # pylint: disable=R0903
+class _PyVZ2Namespace:  # pylint: disable=R0903
     command: Literal["json"]
 
 
 def _main() -> None:
+    parser: ArgumentParser = ArgumentParser()
+    commands = parser.add_subparsers(
+        dest="command", required=True, help="command",
+    )
+    jsonc.tool.register(commands.add_parser("json"))
+    args: _PyVZ2Namespace = parser.parse_args(namespace=_PyVZ2Namespace())
     try:
-        parser: ArgumentParser = ArgumentParser()
-        commands = parser.add_subparsers(
-            dest="command", required=True, help="command",
-        )
-        jsonc.tool.configure(commands.add_parser("json"))
-        args: _PyVZ2Namespace = parser.parse_args(namespace=_PyVZ2Namespace())
         if args.command == "json":
             jsonc.tool.run(cast(JSONNamespace, args))
         else:
