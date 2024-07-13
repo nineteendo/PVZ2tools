@@ -11,7 +11,7 @@ from typing import cast
 
 import jsonyx.tool
 from jsonyx.tool import JSONNamespace
-from typing_extensions import Literal, assert_never
+from typing_extensions import Literal, assert_never  # type: ignore
 
 
 class _PyVZ2Namespace:  # pylint: disable=R0903

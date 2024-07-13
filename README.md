@@ -20,7 +20,7 @@ def loads(data,
 def dumps(obj,
           *,
           align_items=False,    # True -> override indent
-          allow=(),             # comments, duplicate_keys, nan, trailing_commas
+          allow=(),             # comments, duplicate_keys, nan, trailing_comma
           ensure_ascii=False,
           indent=None,
           item_separator=', ',  # indent not None -> strip trailing whitespace
@@ -30,6 +30,6 @@ def dumps(obj,
 
 def loads(data,
           *,
-          allow=(),  # comments, duplicate_keys, nan, trailing_commas
+          allow=(),  # comments, duplicate_keys, nan, trailing_comma
           ): ...
 ```
