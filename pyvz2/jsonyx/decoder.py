@@ -8,8 +8,9 @@ import re
 from re import DOTALL, MULTILINE, VERBOSE, Match, RegexFlag
 from typing import TYPE_CHECKING
 
+from typing_extensions import Any, Literal
+
 from jsonyx.scanner import JSONSyntaxError, make_scanner
-from typing_extensions import Any, Literal  # type: ignore
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Container

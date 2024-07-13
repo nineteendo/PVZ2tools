@@ -10,7 +10,7 @@ from re import DOTALL, MULTILINE, VERBOSE, Match
 from shutil import get_terminal_size
 from typing import TYPE_CHECKING
 
-from typing_extensions import Any  # type: ignore
+from typing_extensions import Any
 
 if TYPE_CHECKING:
     from collections.abc import Callable

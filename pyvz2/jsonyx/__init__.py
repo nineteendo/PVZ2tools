@@ -10,10 +10,11 @@ from codecs import (
 from os.path import realpath
 from typing import TYPE_CHECKING
 
+from typing_extensions import Any, Literal
+
 from jsonyx.decoder import JSONDecoder
 from jsonyx.encoder import JSONEncoder
 from jsonyx.scanner import JSONSyntaxError
-from typing_extensions import Any, Literal  # type: ignore
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Container
@@ -27,7 +28,6 @@ def dump(  # noqa: PLR0913
     fp: SupportsWrite[str],
     *,
     allow: Container[Literal["nan"] | str] = (),
-    cls: type[JSONEncoder] = JSONEncoder,
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
@@ -35,7 +35,7 @@ def dump(  # noqa: PLR0913
     sort_keys: bool = False,
 ) -> None:
     """Serialize object to a JSON formatted file."""
-    for chunk in cls(
+    for chunk in JSONEncoder(
         allow=allow,
         ensure_ascii=ensure_ascii,
         indent=indent,
@@ -51,7 +51,6 @@ def dumps(  # noqa: PLR0913
     obj: Any,
     *,
     allow: Container[Literal["nan"] | str] = (),
-    cls: type[JSONEncoder] = JSONEncoder,
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
@@ -59,7 +58,7 @@ def dumps(  # noqa: PLR0913
     sort_keys: bool = False,
 ) -> str:
     """Serialize object to a JSON formatted string."""
-    return cls(
+    return JSONEncoder(
         allow=allow,
         ensure_ascii=ensure_ascii,
         indent=indent,
@@ -105,14 +104,10 @@ def load(
     allow: Container[
         Literal["comments", "duplicate_keys", "nan", "trailing_comma"] | str
     ] = (),
-    cls: type[JSONDecoder] = JSONDecoder,
 ) -> Any:
     """Deserialize a JSON file to a Python object."""
     return loads(
-        fp.read(),
-        allow=allow,
-        cls=cls,
-        filename=getattr(fp, "name", "<string>"),
+        fp.read(), allow=allow, filename=getattr(fp, "name", "<string>"),
     )
 
 
@@ -122,7 +117,6 @@ def loads(
     allow: Container[
         Literal["comments", "duplicate_keys", "nan", "trailing_comma"] | str
     ] = (),
-    cls: type[JSONDecoder] = JSONDecoder,
     filename: str = "<string>",
 ) -> Any:
     """Deserialize a JSON document to a Python object."""
@@ -135,4 +129,4 @@ def loads(
         msg: str = "Unexpected UTF-8 BOM"
         raise JSONSyntaxError(msg, filename, s, 0)
 
-    return cls(allow=allow).decode(s, filename=filename)
+    return JSONDecoder(allow=allow).decode(s, filename=filename)

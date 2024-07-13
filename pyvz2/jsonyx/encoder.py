@@ -7,7 +7,7 @@ __all__: list[str] = ["JSONEncoder"]
 import json
 from typing import TYPE_CHECKING
 
-from typing_extensions import Literal  # type: ignore
+from typing_extensions import Literal
 
 if TYPE_CHECKING:
     from collections.abc import Container
