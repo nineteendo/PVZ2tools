@@ -1,5 +1,5 @@
 # Copyright (C) 2024 Nice Zombies
-"""JSON Zero module."""
+"""JSONYX module."""
 from __future__ import annotations
 
 __all__: list[str] = ["dump", "dumps", "load", "loads"]
@@ -10,10 +10,11 @@ from codecs import (
 from os.path import realpath
 from typing import TYPE_CHECKING
 
-from json0.decoder import JSONDecoder
-from json0.encoder import JSONEncoder
-from json0.scanner import JSONSyntaxError
 from typing_extensions import Any, Literal
+
+from jsonyx.decoder import JSONDecoder
+from jsonyx.encoder import JSONEncoder
+from jsonyx.scanner import JSONSyntaxError
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Container

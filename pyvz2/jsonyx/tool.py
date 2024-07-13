@@ -10,9 +10,10 @@ from argparse import ArgumentParser
 from pathlib import Path
 from sys import stdin
 
-from json0 import dumps, loads
-from json0.scanner import JSONSyntaxError, format_error
 from typing_extensions import Any
+
+from jsonyx import dumps, loads
+from jsonyx.scanner import JSONSyntaxError, format_error
 
 
 class JSONNamespace:  # pylint: disable=R0903

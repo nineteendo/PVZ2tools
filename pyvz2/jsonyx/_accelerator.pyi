@@ -4,8 +4,9 @@ __all__: list[str] = ["DuplicateKey", "make_scanner", "scanstring"]
 
 from collections.abc import Callable
 
-from json0.decoder import JSONDecoder
 from typing_extensions import Any
+
+from jsonyx.decoder import JSONDecoder
 
 
 def make_scanner(context: JSONDecoder) -> (

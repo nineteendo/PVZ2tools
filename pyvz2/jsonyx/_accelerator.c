@@ -1,4 +1,4 @@
-/* JSON accelerator C extensor: _json0 module. */
+/* JSON accelerator C extensor: _jsonyx module. */
 
 #include <Python.h>
 #include <structmember.h>
@@ -66,7 +66,7 @@ static Py_hash_t duplicatekey_hash(PyUnicodeObject *self) {
 
 static PyTypeObject PyDuplicateKeyType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "_json0.DuplicateKey",
+    .tp_name = "_jsonyx.DuplicateKey",
     .tp_doc = PyDoc_STR("Duplicate key"),
     .tp_hash = (hashfunc)duplicatekey_hash,
 };
@@ -368,7 +368,7 @@ static void
 raise_errmsg(const char *msg, PyObject *filename, PyObject *s, Py_ssize_t end)
 {
     /* Use JSONSyntaxError exception to raise a nice looking SyntaxError subclass */
-    PyObject *JSONSyntaxError = _PyImport_GetModuleAttrString("json0.scanner",
+    PyObject *JSONSyntaxError = _PyImport_GetModuleAttrString("jsonyx.scanner",
                                                               "JSONSyntaxError");
     if (JSONSyntaxError == NULL) {
         return;
@@ -754,7 +754,7 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
                 goto bail;
             }
             else {
-                new_key = PyObject_CallOneArg(&PyDuplicateKeyType, key);
+                new_key = PyObject_CallOneArg((PyObject *)&PyDuplicateKeyType, key);
             }
             Py_SETREF(key, Py_NewRef(new_key));
             if (key == NULL) {
@@ -1237,7 +1237,7 @@ static PyType_Slot PyScannerType_slots[] = {
 };
 
 static PyType_Spec PyScannerType_spec = {
-    .name = "_json0.Scanner",
+    .name = "_jsonyx.Scanner",
     .basicsize = sizeof(PyScannerObject),
     .itemsize = 0,
     .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
@@ -1833,7 +1833,7 @@ static PyType_Slot PyEncoderType_slots[] = {
 };
 
 static PyType_Spec PyEncoderType_spec = {
-    .name = "_json0.Encoder",
+    .name = "_jsonyx.Encoder",
     .basicsize = sizeof(PyEncoderObject),
     .itemsize = 0,
     .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
@@ -1909,14 +1909,14 @@ static PyModuleDef_Slot _json_slots[] = {
 
 static struct PyModuleDef jsonmodule = {
     .m_base = PyModuleDef_HEAD_INIT,
-    .m_name = "_json0",
+    .m_name = "_jsonyx",
     .m_doc = module_doc,
     .m_methods = speedups_methods,
     .m_slots = _json_slots,
 };
 
 PyMODINIT_FUNC
-PyInit__json0(void)
+PyInit__jsonyx(void)
 {
     return PyModuleDef_Init(&jsonmodule);
 }

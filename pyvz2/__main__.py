@@ -9,8 +9,8 @@ import sys
 from argparse import ArgumentParser
 from typing import cast
 
-import json0.tool
-from json0.tool import JSONNamespace
+import jsonyx.tool
+from jsonyx.tool import JSONNamespace
 from typing_extensions import Literal, assert_never
 
 
@@ -23,11 +23,11 @@ def _main() -> None:
     commands = parser.add_subparsers(
         dest="command", required=True, help="command",
     )
-    json0.tool.register(commands.add_parser("json"))
+    jsonyx.tool.register(commands.add_parser("json"))
     args: _PyVZ2Namespace = parser.parse_args(namespace=_PyVZ2Namespace())
     try:
         if args.command == "json":
-            json0.tool.run(cast(JSONNamespace, args))
+            jsonyx.tool.run(cast(JSONNamespace, args))
         else:
             assert_never(args.command)
     except BrokenPipeError as exc:

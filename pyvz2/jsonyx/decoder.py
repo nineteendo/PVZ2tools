@@ -8,8 +8,9 @@ import re
 from re import DOTALL, MULTILINE, VERBOSE, Match, RegexFlag
 from typing import TYPE_CHECKING
 
-from json0.scanner import JSONSyntaxError, make_scanner
 from typing_extensions import Any, Literal
+
+from jsonyx.scanner import JSONSyntaxError, make_scanner
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Container
@@ -45,7 +46,7 @@ def _unescape_unicode(filename: str, s: str, pos: int) -> int:
 
 try:
     # pylint: disable-next=C0412
-    from json0._accelerator import scanstring
+    from jsonyx._accelerator import scanstring
 except ImportError:
     def scanstring(filename: str, s: str, end: int, /) -> (  # noqa: C901
         tuple[str, int]
@@ -147,7 +148,7 @@ def _skip_comments(context: JSONDecoder, filename: str, s: str, end: int) -> (
 
 
 try:
-    from json0._accelerator import DuplicateKey  # type: ignore
+    from jsonyx._accelerator import DuplicateKey  # type: ignore
 except ImportError:
     class DuplicateKey(str):
         """Duplicate key."""
