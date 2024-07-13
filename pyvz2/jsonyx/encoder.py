@@ -18,6 +18,7 @@ class JSONEncoder(json.JSONEncoder):
     """JSON encoder."""
 
     # TODO(Nice Zombies): align_items=True
+    # TODO(Nice Zombies): use_decimal=True
     # pylint: disable-next=R0913
     def __init__(  # noqa: PLR0913
         self,

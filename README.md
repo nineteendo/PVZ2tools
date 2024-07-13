@@ -26,10 +26,12 @@ def dumps(obj,
           item_separator=', ',  # indent not None -> strip trailing whitespace
           key_separator=': ',
           sort_keys=False,
+          use_decimal=False,
           ): ...
 
 def loads(data,
           *,
           allow=(),  # comments, duplicate_keys, nan, trailing_commas
+          use_decimal=False,
           ): ...
 ```

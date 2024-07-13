@@ -8,9 +8,8 @@ import re
 from re import DOTALL, MULTILINE, VERBOSE, Match, RegexFlag
 from typing import TYPE_CHECKING
 
-from typing_extensions import Any, Literal
-
 from jsonyx.scanner import JSONSyntaxError, make_scanner
+from typing_extensions import Any, Literal
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Container
@@ -265,6 +264,7 @@ def parse_array(
 class JSONDecoder:  # pylint: disable=R0903, R0902
     """JSON decoder."""
 
+    # TODO(Nice Zombies): use_decimal=True
     def __init__(
         self,
         *,
