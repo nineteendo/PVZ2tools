@@ -100,10 +100,11 @@ def load(
     allow: Container[
         Literal["comments", "duplicate_keys", "nan", "trailing_comma"] | str
     ] = (),
+    filename: str = "<string>",
 ) -> Any:
     """Deserialize a JSON file to a Python object."""
     return loads(
-        fp.read(), allow=allow, filename=getattr(fp, "name", "<string>"),
+        fp.read(), allow=allow, filename=getattr(fp, "name", filename),
     )
 
 
