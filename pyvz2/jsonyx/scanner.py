@@ -10,7 +10,7 @@ from re import DOTALL, MULTILINE, VERBOSE, Match
 from shutil import get_terminal_size
 from typing import TYPE_CHECKING
 
-from typing_extensions import Any
+from typing_extensions import Any  # type: ignore
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -133,19 +133,19 @@ except ImportError:
                     result = int(integer)
             elif nextchar == "N" and s[idx:idx + 3] == "NaN":
                 if not allow_nan:
-                    msg: str = "NaN isn't allowed"
+                    msg: str = "NaN is not allowed"
                     raise JSONSyntaxError(msg, filename, s, idx)
 
                 result, end = nan, idx + 3
             elif nextchar == "I" and s[idx:idx + 8] == "Infinity":
                 if not allow_nan:
-                    msg = "Infinity isn't allowed"
+                    msg = "Infinity is not allowed"
                     raise JSONSyntaxError(msg, filename, s, idx)
 
                 result, end = inf, idx + 8
             elif nextchar == "-" and s[idx:idx + 9] == "-Infinity":
                 if not allow_nan:
-                    msg = "Infinity isn't allowed"
+                    msg = "-Infinity is not allowed"
                     raise JSONSyntaxError(msg, filename, s, idx)
 
                 result, end = -inf, idx + 9

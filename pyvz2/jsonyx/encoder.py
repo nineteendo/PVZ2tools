@@ -4,21 +4,207 @@ from __future__ import annotations
 
 __all__: list[str] = ["JSONEncoder"]
 
-import json
+import re
+from math import inf
+from re import Match, Pattern
 from typing import TYPE_CHECKING
 
-from typing_extensions import Literal
+from typing_extensions import Any, Literal  # type: ignore
 
 if TYPE_CHECKING:
-    from collections.abc import Container
+    from collections.abc import Callable, Container, Generator
+
+_ESCAPE: Pattern[str] = re.compile(r'["\\\x00-\x1f]')
+_ESCAPE_DCT: dict[str, str] = {chr(i): f"\\u{i:04x}" for i in range(0x20)} | {
+    '"': '\\"',
+    "\\": "\\\\",
+    "\b": "\\b",
+    "\f": "\\f",
+    "\n": "\\n",
+    "\r": "\\r",
+    "\t": "\\t",
+}
+
+try:
+    from jsonyx._accelerator import encode_basestring
+except ImportError:
+    def encode_basestring(s: str) -> str:
+        """Return the JSON representation of a Python string."""
+        return f'"{_ESCAPE.sub(lambda match: _ESCAPE_DCT[match.group()], s)}"'
+
+try:
+    from jsonyx._accelerator import make_encoder
+except ImportError:
+    make_encoder = None
+
+_ESCAPE_ASCII: Pattern[str] = re.compile(r'(?:["\\]|[^\x20-\x7e])')
+
+try:
+    from jsonyx._accelerator import encode_basestring_ascii
+except ImportError:
+    def encode_basestring_ascii(s: str) -> str:
+        """Return the ASCII-only JSON representation of a Python string."""
+        def replace(match: Match[str]) -> str:
+            s: str = match.group()
+            try:
+                return _ESCAPE_DCT[s]
+            except KeyError:
+                uni: int = ord(s)
+                if uni < 0x10000:
+                    return f"\\u{uni:04x}"
+
+                # surrogate pair
+                uni -= 0x10000
+                uni1: int = 0xd800 | ((uni >> 10) & 0x3ff)
+                uni2: int = 0xdc00 | (uni & 0x3ff)
+                return f"\\u{uni1:04x}\\u{uni2:04x}"
+
+        return f'"{_ESCAPE_ASCII.sub(replace, s)}"'
 
 
-# TODO(Nice Zombies): only allow strings as keys
-class JSONEncoder(json.JSONEncoder):
+# pylint: disable-next=R0915
+def _make_iterencode(  # noqa: C901, PLR0915
+    indent: str | None,
+    key_separator: str,
+    item_separator: str,
+    allow_nan: bool,  # noqa: FBT001
+    ensure_ascii: bool,  # noqa: FBT001
+) -> Callable[[Any], Generator[str]]:
+    if ensure_ascii:
+        encode_string: Callable[[str], str] = encode_basestring_ascii
+    else:
+        encode_string = encode_basestring
+
+    float_repr: Callable[[float], str] = float.__repr__
+    int_repr: Callable[[int], str] = int.__repr__
+    markers: dict[int, Any] = {}
+
+    def floatstr(num: float) -> str:
+        # pylint: disable-next=R0124
+        if num != num:  # noqa: PLR0124
+            text = "NaN"
+        elif num == inf:
+            text = "Infinity"
+        elif num == -inf:
+            text = "-Infinity"
+        else:
+            return float_repr(num)
+
+        if not allow_nan:
+            msg: str = f"{num!r} is not allowed"
+            raise ValueError(msg)
+
+        return text
+
+    def iterencode_list(lst: list[Any], old_indent: str) -> Generator[str]:
+        if not lst:
+            yield "[]"
+            return
+
+        if (markerid := id(lst)) in markers:
+            msg: str = "Unexpected circular reference"
+            raise ValueError(msg)
+
+        markers[markerid] = lst
+        yield "["
+        current_indent: str = old_indent
+        current_item_separator: str = item_separator
+        if indent is not None:
+            current_indent += indent
+            current_item_separator += current_indent
+            yield current_indent
+
+        first: bool = True
+        for value in lst:
+            if first:
+                first = False
+            else:
+                yield current_item_separator
+
+            yield from _iterencode(value, current_indent)
+
+        del markers[markerid]
+        if indent is not None:
+            yield old_indent
+
+        yield "]"
+
+    def iterencode_dict(dct: dict[Any, Any], old_indent: str) -> (
+        Generator[str]
+    ):
+        if not dct:
+            yield "{}"
+            return
+
+        if (markerid := id(dct)) in markers:
+            msg: str = "Unexpected circular reference"
+            raise ValueError(msg)
+
+        markers[markerid] = dct
+        yield "{"
+        current_indent: str = old_indent
+        current_item_separator: str = item_separator
+        if indent is not None:
+            current_indent += indent
+            current_item_separator += current_indent
+            yield current_indent
+
+        first: bool = True
+        for key, value in dct.items():
+            if not isinstance(key, str):
+                msg = f"Keys must be str, not {type(key).__name__}"
+                raise TypeError(msg)
+
+            if first:
+                first = False
+            else:
+                yield current_item_separator
+
+            yield encode_string(key)
+            yield key_separator
+            yield from _iterencode(value, current_indent)
+
+        del markers[markerid]
+        if indent is not None:
+            yield old_indent
+
+        yield "}"
+
+    def _iterencode(obj: Any, current_indent: str) -> Generator[str]:
+        if isinstance(obj, str):
+            yield encode_string(obj)
+        elif obj is None:
+            yield "null"
+        elif obj is True:
+            yield "true"
+        elif obj is False:
+            yield "false"
+        elif isinstance(obj, int):
+            yield int_repr(obj)
+        elif isinstance(obj, float):
+            yield floatstr(obj)
+        elif isinstance(obj, list):
+            yield from iterencode_list(obj, current_indent)  # type: ignore
+        elif isinstance(obj, dict):
+            yield from iterencode_dict(obj, current_indent)  # type: ignore
+        else:
+            msg: str = f"{type(obj).__name__} is not JSON serializable"
+            raise TypeError(msg)
+
+    def iterencode(obj: Any) -> Generator[str]:
+        try:
+            return _iterencode(obj, "\n")
+        except (ValueError, TypeError) as exc:
+            raise exc.with_traceback(None) from exc
+        finally:
+            markers.clear()
+
+    return iterencode
+
+
+class JSONEncoder:
     """JSON encoder."""
 
-    # TODO(Nice Zombies): align_items=True
-    # TODO(Nice Zombies): use_decimal=True
     # pylint: disable-next=R0913
     def __init__(  # noqa: PLR0913
         self,
@@ -28,16 +214,33 @@ class JSONEncoder(json.JSONEncoder):
         indent: int | str | None = None,
         item_separator: str = ", ",
         key_separator: str = ": ",
-        sort_keys: bool = False,
     ) -> None:
         """Create new JSON encoder."""
         if indent is not None:
             item_separator = item_separator.rstrip()
+            if isinstance(indent, int):
+                indent = " " * indent
 
-        super().__init__(
-            ensure_ascii=ensure_ascii,
-            allow_nan="nan" in allow,
-            sort_keys=sort_keys,
-            indent=indent,
-            separators=(item_separator, key_separator),
+        if make_encoder is None:
+            self._encoder = None
+        else:
+            self._encoder = make_encoder(
+                indent, key_separator, item_separator, "nan" in allow,
+                ensure_ascii,
+            )
+
+        self._iterencode: Callable[[Any], Generator[str]] = _make_iterencode(
+            indent, key_separator, item_separator, "nan" in allow,
+            ensure_ascii,
         )
+
+    def encode(self, obj: Any) -> str:
+        """Serialize a Python object to a JSON string."""
+        if self._encoder:
+            return self._encoder(obj)
+
+        return "".join(list(self._iterencode(obj)))
+
+    def iterencode(self, obj: Any) -> Generator[str]:
+        """Serialize a Python object to a JSON stream."""
+        return self._iterencode(obj)

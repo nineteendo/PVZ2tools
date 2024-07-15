@@ -1,4 +1,4 @@
-# !/usr/bin/env python
+#!/usr/bin/env python
 # Copyright (C) 2024 Nice Zombies
 """JSON tool."""
 from __future__ import annotations
@@ -10,21 +10,19 @@ from argparse import ArgumentParser
 from pathlib import Path
 from sys import stdin
 
-from typing_extensions import Any
-
 from jsonyx import dumps, loads
 from jsonyx.scanner import JSONSyntaxError, format_error
+from typing_extensions import Any  # type: ignore
 
 
 class JSONNamespace:  # pylint: disable=R0903
     """JSON namespace."""
 
-    allow: list[str]
     compact: bool
     ensure_ascii: bool
     indent: int | str | None
     filename: str | None
-    sort_keys: bool
+    nonstrict: bool
 
 
 def register(parser: ArgumentParser) -> None:
@@ -39,16 +37,9 @@ def register(parser: ArgumentParser) -> None:
         action="store_const",
         const="\t",
         dest="indent",
-        help="indent using tabs",
+        help="indent with tabs",
     )
-    parser.add_argument(
-        "--nonstrict",
-        action="store_const",
-        const=["comments", "duplicate_keys", "nan", "trailing_comma"],
-        default=[],
-        dest="allow",
-    )
-    parser.add_argument("--sort-keys", action="store_true")
+    parser.add_argument("--nonstrict", action="store_true")
 
 
 def run(args: JSONNamespace) -> None:
@@ -63,18 +54,23 @@ def run(args: JSONNamespace) -> None:
         filename, input_json = "<stdin>", stdin.buffer.read()
 
     try:
-        obj: Any = loads(input_json, allow=args.allow, filename=filename)
+        obj: Any = loads(
+            input_json,
+            allow=[
+                "comments", "duplicate_keys", "nan", "trailing_comma",
+            ] if args.nonstrict else [],
+            filename=filename,
+        )
     except JSONSyntaxError as exc:
         raise SystemExit(format_error(exc)) from None
 
     output_json: str = dumps(
         obj,
-        allow=["nan"],
+        allow=["nan"] if args.nonstrict else [],
         ensure_ascii=args.ensure_ascii,
         indent=args.indent,
         item_separator="," if args.compact else ", ",
         key_separator=":" if args.compact else ": ",
-        sort_keys=args.sort_keys,
     )
     print(output_json)
 

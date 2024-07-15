@@ -1,4 +1,4 @@
-# !/usr/bin/env python
+#!/usr/bin/env python
 # Copyright (C) 2024 Nice Zombies
 """PyVZ2, a command line utility to modify PVZ2."""
 from __future__ import annotations
@@ -11,7 +11,7 @@ from typing import cast
 
 import jsonyx.tool
 from jsonyx.tool import JSONNamespace
-from typing_extensions import Literal, assert_never
+from typing_extensions import Literal, assert_never  # type: ignore
 
 
 class _PyVZ2Namespace:  # pylint: disable=R0903

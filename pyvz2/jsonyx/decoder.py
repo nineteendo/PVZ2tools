@@ -9,13 +9,13 @@ from re import DOTALL, MULTILINE, VERBOSE, Match, RegexFlag
 from typing import TYPE_CHECKING
 
 from jsonyx.scanner import JSONSyntaxError, make_scanner
-from typing_extensions import Any, Literal
+from typing_extensions import Any, Literal  # type: ignore
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Container
 
-FLAGS: RegexFlag = VERBOSE | MULTILINE | DOTALL
-UNESCAPE: dict[str, str] = {
+_FLAGS: RegexFlag = VERBOSE | MULTILINE | DOTALL
+_UNESCAPE: dict[str, str] = {
     '"': '"',
     "\\": "\\",
     "/": "/",
@@ -27,7 +27,7 @@ UNESCAPE: dict[str, str] = {
 }
 
 _match_chunk: Callable[[str, int], Match[str] | None] = re.compile(
-    r'[^"\\\x00-\x1f]+', FLAGS,
+    r'[^"\\\x00-\x1f]+', _FLAGS,
 ).match
 
 
@@ -89,7 +89,7 @@ except ImportError:
             # If not a unicode escape sequence, must be in the lookup table
             if esc != "u":
                 try:
-                    char = UNESCAPE[esc]
+                    char = _UNESCAPE[esc]
                 except KeyError:
                     msg = "Invalid backslash escape"
                     raise JSONSyntaxError(msg, filename, s, end) from None
@@ -111,33 +111,34 @@ except ImportError:
 
 
 _match_whitespace: Callable[[str, int], Match[str] | None] = re.compile(
-    r"[ \t\n\r]+", FLAGS,
+    r"[ \t\n\r]+", _FLAGS,
 ).match
 
 
 def _skip_comments(context: JSONDecoder, filename: str, s: str, end: int) -> (
     int
 ):
+    find: Callable[[str, int], int] = s.find
     while True:
         if match := _match_whitespace(s, end):
             end = match.end()
 
         if (comment_prefix := s[end:end + 2]) == "//":
             if not context.allow_comments:
-                msg: str = "Comments aren't allowed"
+                msg: str = "Comments are not allowed"
                 raise JSONSyntaxError(msg, filename, s, end)
 
-            if (end := s.find("\n", end + 2)) == -1:
+            if (end := find("\n", end + 2)) == -1:
                 return len(s)
 
             end += 1
         elif comment_prefix == "/*":
             if not context.allow_comments:
-                msg = "Comments aren't allowed"
+                msg = "Comments are not allowed"
                 raise JSONSyntaxError(msg, filename, s, end)
 
             comment_idx: int = end
-            if (end := s.find("*/", end + 2)) == -1:
+            if (end := find("*/", end + 2)) == -1:
                 msg = "Unterminated comment"
                 raise JSONSyntaxError(msg, filename, s, comment_idx)
 
@@ -160,7 +161,7 @@ except ImportError:
 
 
 # pylint: disable-next=R0913, R0912
-def parse_object(  # noqa: C901, PLR0917, PLR0913, PLR0912
+def _parse_object(  # noqa: C901, PLR0917, PLR0913, PLR0912
     context: JSONDecoder,
     filename: str,
     s: str,
@@ -168,7 +169,6 @@ def parse_object(  # noqa: C901, PLR0917, PLR0913, PLR0912
     scan_once: Callable[[str, str, int], tuple[Any, int]],
     memoize: Callable[[str, str], str],
 ) -> tuple[dict[str, Any], int]:
-    """Parse JSON object."""
     end = _skip_comments(context, filename, s, end)
     if (nextchar := s[end:end + 1]) != '"':
         if nextchar != "}":
@@ -181,12 +181,11 @@ def parse_object(  # noqa: C901, PLR0917, PLR0913, PLR0912
     while True:
         key_idx: int = end
         key, end = scanstring(filename, s, end + 1)
-
         if key not in result:
             # Reduce memory consumption
             key = memoize(key, key)
         elif not context.allow_duplicate_keys:
-            msg = "Duplicate keys aren't allowed"
+            msg = "Duplicate keys are not allowed"
             raise JSONSyntaxError(msg, filename, s, key_idx)
         else:
             key = DuplicateKey(key)
@@ -218,20 +217,19 @@ def parse_object(  # noqa: C901, PLR0917, PLR0913, PLR0912
                 raise JSONSyntaxError(msg, filename, s, end)
 
             if not context.allow_trailing_comma:
-                msg = "Trailing comma's aren't allowed"
+                msg = "Trailing comma is not allowed"
                 raise JSONSyntaxError(msg, filename, s, comma_idx)
 
             return result, end + 1
 
 
-def parse_array(
+def _parse_array(
     context: JSONDecoder,
     filename: str,
     s: str,
     end: int,
     scan_once: Callable[[str, str, int], tuple[Any, int]],
 ) -> tuple[list[Any], int]:
-    """Parse JSON array."""
     end = _skip_comments(context, filename, s, end)
     if (nextchar := s[end:end + 1]) == "]":
         return [], end + 1
@@ -257,14 +255,13 @@ def parse_array(
             if context.allow_trailing_comma:
                 return values, end + 1
 
-            msg = "Trailing comma's aren't allowed"
+            msg = "Trailing comma is not allowed"
             raise JSONSyntaxError(msg, filename, s, comma_idx)
 
 
 class JSONDecoder:  # pylint: disable=R0903, R0902
     """JSON decoder."""
 
-    # TODO(Nice Zombies): use_decimal=True
     def __init__(
         self,
         *,
@@ -280,25 +277,25 @@ class JSONDecoder:  # pylint: disable=R0903, R0902
         self.parse_array: Callable[[
             JSONDecoder, str, str, int,
             Callable[[str, str, int], tuple[Any, int]],
-        ], tuple[list[Any], int]] = parse_array
+        ], tuple[list[Any], int]] = _parse_array
         self.parse_object: Callable[[
             JSONDecoder, str, str, int,
             Callable[[str, str, int], tuple[Any, int]],
             Callable[[str, str], str],
-        ], tuple[dict[str, Any], int]] = parse_object
+        ], tuple[dict[str, Any], int]] = _parse_object
         self.parse_string: Callable[
             [str, str, int], tuple[str, int],
         ] = scanstring
-        self.scan_once: Callable[
+        self._scan_once: Callable[
             [str, str, int], tuple[Any, int],
         ] = make_scanner(self)  # type: ignore
 
     def decode(self, s: str, *, filename: str = "<string>") -> Any:
-        """Decode a JSON document."""
+        """Deserialize a JSON string to a Python object."""
         end: int = _skip_comments(self, filename, s, 0)
-        obj, end = self.scan_once(filename, s, end)
+        obj, end = self._scan_once(filename, s, end)
         if (end := _skip_comments(self, filename, s, end)) < len(s):
-            msg: str = "Extra data"
+            msg: str = "Unexpected value"
             raise JSONSyntaxError(msg, filename, s, end)
 
         return obj

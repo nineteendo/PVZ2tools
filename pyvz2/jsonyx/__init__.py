@@ -1,5 +1,5 @@
 # Copyright (C) 2024 Nice Zombies
-"""JSONYX module."""
+"""JSONYX module for JSON (de)serialization."""
 from __future__ import annotations
 
 __all__: list[str] = ["dump", "dumps", "load", "loads"]
@@ -10,11 +10,10 @@ from codecs import (
 from os.path import realpath
 from typing import TYPE_CHECKING
 
-from typing_extensions import Any, Literal
-
 from jsonyx.decoder import JSONDecoder
 from jsonyx.encoder import JSONEncoder
 from jsonyx.scanner import JSONSyntaxError
+from typing_extensions import Any, Literal  # type: ignore
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Container
@@ -32,18 +31,17 @@ def dump(  # noqa: PLR0913
     indent: int | str | None = None,
     item_separator: str = ", ",
     key_separator: str = ": ",
-    sort_keys: bool = False,
 ) -> None:
-    """Serialize object to a JSON formatted file."""
+    """Serialize a Python object to a JSON file."""
+    write_chunk: Callable[[str], Any] = fp.write
     for chunk in JSONEncoder(
         allow=allow,
         ensure_ascii=ensure_ascii,
         indent=indent,
         item_separator=item_separator,
         key_separator=key_separator,
-        sort_keys=sort_keys,
     ).iterencode(obj):
-        fp.write(chunk)
+        write_chunk(chunk)
 
 
 # pylint: disable-next=R0913
@@ -55,16 +53,14 @@ def dumps(  # noqa: PLR0913
     indent: int | str | None = None,
     item_separator: str = ", ",
     key_separator: str = ": ",
-    sort_keys: bool = False,
 ) -> str:
-    """Serialize object to a JSON formatted string."""
+    """Serialize a Python object to a JSON string."""
     return JSONEncoder(
         allow=allow,
         ensure_ascii=ensure_ascii,
         indent=indent,
         item_separator=item_separator,
         key_separator=key_separator,
-        sort_keys=sort_keys,
     ).encode(obj)
 
 
@@ -119,7 +115,7 @@ def loads(
     ] = (),
     filename: str = "<string>",
 ) -> Any:
-    """Deserialize a JSON document to a Python object."""
+    """Deserialize a JSON string to a Python object."""
     if not filename.startswith("<") and not filename.endswith(">"):
         filename = realpath(filename)
 

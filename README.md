@@ -16,22 +16,18 @@ def loads(data,
 ```
 
 ```python
-# jsonc.py
+# jsonyx.py
 def dumps(obj,
           *,
-          align_items=False,    # True -> override indent
-          allow=(),             # comments, duplicate_keys, nan, trailing_commas
+          allow=(),             # nan
           ensure_ascii=False,
           indent=None,
           item_separator=', ',  # indent not None -> strip trailing whitespace
           key_separator=': ',
-          sort_keys=False,
-          use_decimal=False,
           ): ...
 
 def loads(data,
           *,
-          allow=(),  # comments, duplicate_keys, nan, trailing_commas
-          use_decimal=False,
+          allow=(),  # comments, duplicate_keys, nan, trailing_comma
           ): ...
 ```
