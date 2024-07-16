@@ -3,15 +3,16 @@
 """JSON tool."""
 from __future__ import annotations
 
-__all__ = ["JSONNamespace", "register", "run"]
+__all__: list[str] = ["JSONNamespace", "register", "run"]
 
 import sys
 from argparse import ArgumentParser
 from pathlib import Path
-from sys import stdin
+from sys import stdin, stdout
 
-from jsonyx import dumps, loads
-from jsonyx.scanner import JSONSyntaxError, format_error
+from jsonyx import (
+    EVERYTHING, NAN, JSONSyntaxError, dump, format_syntax_error, loads,
+)
 from typing_extensions import Any  # type: ignore
 
 
@@ -33,46 +34,41 @@ def register(parser: ArgumentParser) -> None:
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--indent", type=int, metavar="SPACES")
     group.add_argument(
-        "--tab",
-        action="store_const",
-        const="\t",
-        dest="indent",
-        help="indent with tabs",
+        "--indent-tab", action="store_const", const="\t", dest="indent",
     )
     parser.add_argument("--nonstrict", action="store_true")
 
 
 def run(args: JSONNamespace) -> None:
     """Run JSON tool."""
-    input_json: bytes | str
+    s: bytes | str
     if args.filename:
         filename: str = args.filename
-        input_json = Path(filename).read_bytes()
+        s = Path(filename).read_bytes()
     elif stdin.isatty():
-        filename, input_json = "<stdin>", "\n".join(iter(input, ""))
+        filename, s = "<stdin>", "\n".join(iter(input, ""))
     else:
-        filename, input_json = "<stdin>", stdin.buffer.read()
+        filename, s = "<stdin>", stdin.buffer.read()
 
     try:
         obj: Any = loads(
-            input_json,
-            allow=[
-                "comments", "duplicate_keys", "nan", "trailing_comma",
-            ] if args.nonstrict else [],
+            s,
+            allow=EVERYTHING if args.nonstrict else [],
             filename=filename,
         )
     except JSONSyntaxError as exc:
-        raise SystemExit(format_error(exc)) from None
+        raise SystemExit(format_syntax_error(exc)) from None
 
-    output_json: str = dumps(
+    dump(
         obj,
-        allow=["nan"] if args.nonstrict else [],
+        stdout,
+        allow=NAN if args.nonstrict else [],
         ensure_ascii=args.ensure_ascii,
         indent=args.indent,
         item_separator="," if args.compact else ", ",
         key_separator=":" if args.compact else ": ",
     )
-    print(output_json)
+    print()
 
 
 def _main() -> None:

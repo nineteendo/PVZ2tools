@@ -560,33 +560,6 @@ bail:
     return NULL;
 }
 
-PyDoc_STRVAR(pydoc_scanstring,
-    "scanstring(string, end) -> (string, end)\n"
-    "\n"
-    "Scan the string s for a JSON string. End is the index of the\n"
-    "character in s after the quote that started the JSON string.\n"
-    "Unescapes all valid JSON string escape sequences and raises ValueError\n"
-    "on attempt to decode an invalid string.\n"
-    "\n"
-    "Returns a tuple of the decoded string and the index of the character in s\n"
-    "after the end quote."
-);
-
-static PyObject *
-py_scanstring(PyObject* Py_UNUSED(self), PyObject *args)
-{
-    PyObject *pyfilename;
-    PyObject *pystr;
-    PyObject *rval;
-    Py_ssize_t end;
-    Py_ssize_t next_end = -1;
-    if (!PyArg_ParseTuple(args, "UUn|p:scanstring", &pyfilename, &pystr, &end)) {
-        return NULL;
-    }
-    rval = scanstring_unicode(pyfilename, pystr, end, &next_end);
-    return _build_rval_index_tuple(rval, next_end);
-}
-
 PyDoc_STRVAR(pydoc_encode_basestring_ascii,
     "encode_basestring_ascii(string) -> string\n"
     "\n"
@@ -958,6 +931,10 @@ _match_number_unicode(PyScannerObject *s, PyObject *pyfilename, PyObject *pystr,
     }
     if (is_float)
         rval = PyFloat_FromString(numstr);
+        if (!s->allow_nan && !isfinite(PyFloat_AS_DOUBLE(rval))) {
+            raise_errmsg("Infinity is not allowed", pyfilename, pystr, start);
+            return NULL;
+        }
     else
         rval = PyLong_FromString(buf, NULL, 10);
     Py_DECREF(numstr);
@@ -1042,7 +1019,7 @@ scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyOb
             if ((idx + 2 < length) && PyUnicode_READ(kind, str, idx + 1) == 'a' &&
                 PyUnicode_READ(kind, str, idx + 2) == 'N') {
                 if (!s->allow_nan) {
-                    raise_errmsg("NaN is not allowed", pyfilename, pystr, idx - 1);
+                    raise_errmsg("NaN is not allowed", pyfilename, pystr, idx);
                     return NULL;
                 }
                 *next_idx_ptr = idx + 3;
@@ -1059,7 +1036,7 @@ scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyOb
                 PyUnicode_READ(kind, str, idx + 6) == 't' &&
                 PyUnicode_READ(kind, str, idx + 7) == 'y') {
                 if (!s->allow_nan) {
-                    raise_errmsg("Infinity is not allowed", pyfilename, pystr, idx - 1);
+                    raise_errmsg("Infinity is not allowed", pyfilename, pystr, idx);
                     return NULL;
                 }
                 *next_idx_ptr = idx + 8;
@@ -1078,7 +1055,7 @@ scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyOb
                 PyUnicode_READ(kind, str, idx + 8) == 'y') {
                 *next_idx_ptr = idx + 9;
                 if (!s->allow_nan) {
-                    raise_errmsg("-Infinity is not allowed", pyfilename, pystr, idx - 1);
+                    raise_errmsg("Infinity is not allowed", pyfilename, pystr, idx);
                     return NULL;
                 }
                 Py_RETURN_INF(-1);
@@ -1096,35 +1073,40 @@ scanner_call(PyScannerObject *self, PyObject *args, PyObject *kwds)
     PyObject *pyfilename;
     PyObject *pystr;
     PyObject *rval;
-    Py_ssize_t idx;
+    Py_ssize_t idx = -1;
     Py_ssize_t next_idx = -1;
-    static char *kwlist[] = {"filename", "string", "idx", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "UUn:scan_once", kwlist, &pyfilename, &pystr, &idx))
+    static char *kwlist[] = {"filename", "string", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "UUn:scan_once", kwlist, &pyfilename, &pystr) ||
+        _skip_comments(self, pyfilename, pystr, &idx))
+    {
         return NULL;
-
+    }
     PyObject *memo = PyDict_New();
     if (memo == NULL) {
         return NULL;
     }
     rval = scan_once_unicode(self, memo, pyfilename, pystr, idx, &next_idx);
     Py_DECREF(memo);
-    if (rval == NULL)
+    if (_skip_comments(self, pyfilename, pystr, &idx)) {
         return NULL;
-    return _build_rval_index_tuple(rval, next_idx);
+    }
+    if (idx < PyUnicode_GET_LENGTH(pystr)) {
+        raise_errmsg("Unexpected value", pyfilename, pystr, idx);
+        return NULL;
+    }
+    return rval;
 }
 
 static PyObject *
 scanner_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    PyScannerObject *s;
-    PyObject *ctx;
-    PyObject *allow_comments;
-    PyObject *allow_duplicate_keys;
-    PyObject *allow_nan;
-    PyObject *allow_trailing_comma;
-    static char *kwlist[] = {"context", NULL};
+    static char *kwlist[] = {"allow_comments", "allow_duplicate_keys", "allow_nan", "allow_trailing_comma", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O:make_scanner", kwlist, &ctx))
+    PyScannerObject *s;
+    int allow_comments, allow_duplicate_keys, allow_nan, allow_trailing_comma;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "pppp:make_scanner", kwlist,
+        &allow_comments, &allow_duplicate_keys, &allow_nan, &allow_trailing_comma))
         return NULL;
 
     s = (PyScannerObject *)type->tp_alloc(type, 0);
@@ -1132,43 +1114,14 @@ scanner_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
         return NULL;
     }
 
-    /* All of these will fail "gracefully" so we don't need to verify them */
-    allow_comments = PyObject_GetAttrString(ctx, "allow_comments");
-    if (allow_comments == NULL)
-        goto bail;
-    s->allow_comments = PyObject_IsTrue(allow_comments);
-    Py_DECREF(allow_comments);
-    if (s->allow_comments < 0)
-        goto bail;
-    allow_duplicate_keys = PyObject_GetAttrString(ctx, "allow_duplicate_keys");
-    if (allow_duplicate_keys == NULL)
-        goto bail;
-    s->allow_duplicate_keys = PyObject_IsTrue(allow_duplicate_keys);
-    Py_DECREF(allow_duplicate_keys);
-    if (s->allow_duplicate_keys < 0)
-        goto bail;
-    allow_nan = PyObject_GetAttrString(ctx, "allow_nan");
-    if (allow_nan == NULL)
-        goto bail;
-    s->allow_nan = PyObject_IsTrue(allow_nan);
-    Py_DECREF(allow_nan);
-    if (s->allow_nan < 0)
-        goto bail;
-    allow_trailing_comma = PyObject_GetAttrString(ctx, "allow_trailing_comma");
-    if (allow_trailing_comma == NULL)
-        goto bail;
-    s->allow_trailing_comma = PyObject_IsTrue(allow_trailing_comma);
-    Py_DECREF(allow_trailing_comma);
-    if (s->allow_trailing_comma < 0)
-        goto bail;
+    s->allow_comments = allow_comments;
+    s->allow_duplicate_keys = allow_duplicate_keys;
+    s->allow_nan = allow_nan;
+    s->allow_trailing_comma = allow_trailing_comma;
     return (PyObject *)s;
-
-bail:
-    Py_DECREF(s);
-    return NULL;
 }
 
-PyDoc_STRVAR(scanner_doc, "JSON scanner object");
+PyDoc_STRVAR(scanner_doc, "Make JSON scanner");
 
 static PyType_Slot PyScannerType_slots[] = {
     {Py_tp_doc, (void *)scanner_doc},
@@ -1634,7 +1587,7 @@ encoder_clear(PyEncoderObject *self)
     return 0;
 }
 
-PyDoc_STRVAR(encoder_doc, "Encoder(indent, key_separator, item_separator, allow_nan, ensure_ascii)");
+PyDoc_STRVAR(encoder_doc, "Make JSON encoder");
 
 static PyType_Slot PyEncoderType_slots[] = {
     {Py_tp_doc, (void *)encoder_doc},
@@ -1663,10 +1616,6 @@ static PyMethodDef speedups_methods[] = {
         (PyCFunction)py_encode_basestring,
         METH_O,
         pydoc_encode_basestring},
-    {"scanstring",
-        (PyCFunction)py_scanstring,
-        METH_VARARGS,
-        pydoc_scanstring},
     {NULL, NULL, 0, NULL}
 };
 

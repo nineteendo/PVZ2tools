@@ -2,19 +2,23 @@
 """JSON encoder."""
 from __future__ import annotations
 
-__all__: list[str] = ["JSONEncoder"]
+__all__: list[str] = ["make_writer"]
 
 import re
 from math import inf
 from re import Match, Pattern
 from typing import TYPE_CHECKING
 
-from typing_extensions import Any, Literal  # type: ignore
+from typing_extensions import Any  # type: ignore
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Container, Generator
+    from collections.abc import Callable
+
+    from _typeshed import SupportsWrite
+
 
 _ESCAPE: Pattern[str] = re.compile(r'["\\\x00-\x1f]')
+_ESCAPE_ASCII: Pattern[str] = re.compile(r'(?:["\\]|[^\x20-\x7e])')
 _ESCAPE_DCT: dict[str, str] = {chr(i): f"\\u{i:04x}" for i in range(0x20)} | {
     '"': '\\"',
     "\\": "\\\\",
@@ -26,22 +30,12 @@ _ESCAPE_DCT: dict[str, str] = {chr(i): f"\\u{i:04x}" for i in range(0x20)} | {
 }
 
 try:
-    from jsonyx._accelerator import encode_basestring
+    from jsonyx._accelerator import encode_basestring, encode_basestring_ascii
 except ImportError:
     def encode_basestring(s: str) -> str:
         """Return the JSON representation of a Python string."""
         return f'"{_ESCAPE.sub(lambda match: _ESCAPE_DCT[match.group()], s)}"'
 
-try:
-    from jsonyx._accelerator import make_encoder
-except ImportError:
-    make_encoder = None
-
-_ESCAPE_ASCII: Pattern[str] = re.compile(r'(?:["\\]|[^\x20-\x7e])')
-
-try:
-    from jsonyx._accelerator import encode_basestring_ascii
-except ImportError:
     def encode_basestring_ascii(s: str) -> str:
         """Return the ASCII-only JSON representation of a Python string."""
         def replace(match: Match[str]) -> str:
@@ -63,13 +57,14 @@ except ImportError:
 
 
 # pylint: disable-next=R0915
-def _make_iterencode(  # noqa: C901, PLR0915
+def make_writer(  # noqa: C901, PLR0915
     indent: str | None,
     key_separator: str,
     item_separator: str,
     allow_nan: bool,  # noqa: FBT001
     ensure_ascii: bool,  # noqa: FBT001
-) -> Callable[[Any], Generator[str]]:
+) -> Callable[[Any, SupportsWrite[str]], None]:
+    """Make JSON interencode."""
     if ensure_ascii:
         encode_string: Callable[[str], str] = encode_basestring_ascii
     else:
@@ -96,9 +91,11 @@ def _make_iterencode(  # noqa: C901, PLR0915
 
         return text
 
-    def iterencode_list(lst: list[Any], old_indent: str) -> Generator[str]:
+    def write_list(
+        lst: list[Any], write: Callable[[str], Any], old_indent: str,
+    ) -> None:
         if not lst:
-            yield "[]"
+            write("[]")
             return
 
         if (markerid := id(lst)) in markers:
@@ -106,34 +103,34 @@ def _make_iterencode(  # noqa: C901, PLR0915
             raise ValueError(msg)
 
         markers[markerid] = lst
-        yield "["
+        write("[")
         current_indent: str = old_indent
         current_item_separator: str = item_separator
         if indent is not None:
             current_indent += indent
             current_item_separator += current_indent
-            yield current_indent
+            write(current_indent)
 
         first: bool = True
         for value in lst:
             if first:
                 first = False
             else:
-                yield current_item_separator
+                write(current_item_separator)
 
-            yield from _iterencode(value, current_indent)
+            write_value(value, write, current_indent)
 
         del markers[markerid]
         if indent is not None:
-            yield old_indent
+            write(old_indent)
 
-        yield "]"
+        write("]")
 
-    def iterencode_dict(dct: dict[Any, Any], old_indent: str) -> (
-        Generator[str]
-    ):
+    def write_dict(
+        dct: dict[Any, Any], write: Callable[[str], Any], old_indent: str,
+    ) -> None:
         if not dct:
-            yield "{}"
+            write("{}")
             return
 
         if (markerid := id(dct)) in markers:
@@ -141,13 +138,13 @@ def _make_iterencode(  # noqa: C901, PLR0915
             raise ValueError(msg)
 
         markers[markerid] = dct
-        yield "{"
+        write("{")
         current_indent: str = old_indent
         current_item_separator: str = item_separator
         if indent is not None:
             current_indent += indent
             current_item_separator += current_indent
-            yield current_indent
+            write(current_indent)
 
         first: bool = True
         for key, value in dct.items():
@@ -158,89 +155,46 @@ def _make_iterencode(  # noqa: C901, PLR0915
             if first:
                 first = False
             else:
-                yield current_item_separator
+                write(current_item_separator)
 
-            yield encode_string(key)
-            yield key_separator
-            yield from _iterencode(value, current_indent)
+            write(encode_string(key) + key_separator)
+            write_value(value, write, current_indent)
 
         del markers[markerid]
         if indent is not None:
-            yield old_indent
+            write(old_indent)
 
-        yield "}"
+        write("}")
 
-    def _iterencode(obj: Any, current_indent: str) -> Generator[str]:
+    def write_value(
+        obj: Any, write: Callable[[str], Any], current_indent: str,
+    ) -> None:
         if isinstance(obj, str):
-            yield encode_string(obj)
+            write(encode_string(obj))
         elif obj is None:
-            yield "null"
+            write("null")
         elif obj is True:
-            yield "true"
+            write("true")
         elif obj is False:
-            yield "false"
+            write("false")
         elif isinstance(obj, int):
-            yield int_repr(obj)
+            write(int_repr(obj))
         elif isinstance(obj, float):
-            yield floatstr(obj)
+            write(floatstr(obj))
         elif isinstance(obj, list):
-            yield from iterencode_list(obj, current_indent)  # type: ignore
+            write_list(obj, write, current_indent)  # type: ignore
         elif isinstance(obj, dict):
-            yield from iterencode_dict(obj, current_indent)  # type: ignore
+            write_dict(obj, write, current_indent)  # type: ignore
         else:
             msg: str = f"{type(obj).__name__} is not JSON serializable"
             raise TypeError(msg)
 
-    def iterencode(obj: Any) -> Generator[str]:
+    def writer(obj: Any, fp: SupportsWrite[str]) -> None:
         try:
-            return _iterencode(obj, "\n")
+            write_value(obj, fp.write, "\n")
         except (ValueError, TypeError) as exc:
             raise exc.with_traceback(None) from exc
         finally:
             markers.clear()
 
-    return iterencode
-
-
-class JSONEncoder:
-    """JSON encoder."""
-
-    # pylint: disable-next=R0913
-    def __init__(  # noqa: PLR0913
-        self,
-        *,
-        allow: Container[Literal["nan"] | str] = (),
-        ensure_ascii: bool = False,
-        indent: int | str | None = None,
-        item_separator: str = ", ",
-        key_separator: str = ": ",
-    ) -> None:
-        """Create new JSON encoder."""
-        if indent is not None:
-            item_separator = item_separator.rstrip()
-            if isinstance(indent, int):
-                indent = " " * indent
-
-        if make_encoder is None:
-            self._encoder = None
-        else:
-            self._encoder = make_encoder(
-                indent, key_separator, item_separator, "nan" in allow,
-                ensure_ascii,
-            )
-
-        self._iterencode: Callable[[Any], Generator[str]] = _make_iterencode(
-            indent, key_separator, item_separator, "nan" in allow,
-            ensure_ascii,
-        )
-
-    def encode(self, obj: Any) -> str:
-        """Serialize a Python object to a JSON string."""
-        if self._encoder:
-            return self._encoder(obj)
-
-        return "".join(list(self._iterencode(obj)))
-
-    def iterencode(self, obj: Any) -> Generator[str]:
-        """Serialize a Python object to a JSON stream."""
-        return self._iterencode(obj)
+    return writer
