@@ -17,6 +17,6 @@ jobs:
     - name: Install dependencies
       run: pip install src/
     - name: Install test dependencies
-      run: pip install pytest==8.2.2
+      run: pip install -r .github/workflows/requirements.txt
     - name: Test with pytest
       run: pytest
