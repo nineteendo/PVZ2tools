@@ -1,5 +1,5 @@
 # Copyright (C) 2024 Nice Zombies
-"""JSON tests."""
+"""JSON loads tests."""
 from __future__ import annotations
 
 __all__: list[str] = []
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 @pytest.fixture(name="loads")
 def get_loads(json: ModuleType) -> FunctionType:
-    """JSON loads()."""
+    """Get JSON loads."""
     return json.loads
 
 

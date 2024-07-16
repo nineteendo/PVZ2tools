@@ -18,7 +18,7 @@ pyjson: ModuleType | None = import_fresh_module("jsonyx", blocked=["_jsonyx"])
 
 @pytest.fixture(params=[cjson, pyjson], ids=["cjson", "pyjson"], name="json")
 def get_json(request: pytest.FixtureRequest) -> ModuleType:
-    """JSON module."""
+    """Get JSON module."""
     result: ModuleType | None = request.param
     if result is None:
         pytest.skip("requires _jsonyx")

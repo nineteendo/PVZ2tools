@@ -3,7 +3,7 @@
 ## TODO
 
 ```python
-# rton.py
+# rtonyx/__init__.py
 def dumps(obj,
           *,
           cache_strings=False,
@@ -12,22 +12,5 @@ def dumps(obj,
 def loads(data,
           *,
           strict=True,
-          ): ...
-```
-
-```python
-# jsonyx.py
-def dumps(obj,
-          *,
-          allow=(),             # nan
-          ensure_ascii=False,
-          indent=None,
-          item_separator=', ',  # indent not None -> strip trailing whitespace
-          key_separator=': ',
-          ): ...
-
-def loads(data,
-          *,
-          allow=(),  # comments, duplicate_keys, nan, trailing_comma
           ): ...
 ```
