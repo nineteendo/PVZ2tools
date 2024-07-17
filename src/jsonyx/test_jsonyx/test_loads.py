@@ -8,7 +8,7 @@ from math import inf, isnan, nan
 from typing import TYPE_CHECKING
 
 import pytest
-from jsonyx import NAN
+from jsonyx import NAN, TRAILING_COMMA
 # pylint: disable-next=W0611
 from jsonyx.test_jsonyx import get_json  # type: ignore # noqa: F401
 from typing_extensions import Any
@@ -139,8 +139,8 @@ def test_number(json: ModuleType, string: str, expected: Any) -> None:
     ("1e400", "Number is too large"),
     ("-1e400", "Number is too large"),
 ])
-def test_invalid_number(json: ModuleType, string: str, msg: str) -> None:
-    """Test invalid JSON number."""
+def test_big_number(json: ModuleType, string: str, msg: str) -> None:
+    """Test big JSON number."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
         json.loads(string)
 
@@ -242,6 +242,22 @@ def test_invalid_string(
 def test_array(json: ModuleType, string: str, expected: Any) -> None:
     """Test JSON array."""
     assert json.loads(string) == expected
+
+
+def test_array_trailing_comma_allowed(json: ModuleType) -> None:
+    """Test JSON array with trailing comma if allowed."""
+    assert json.loads("[0,]", allow=TRAILING_COMMA) == [0]
+
+
+def test_array_trailing_comma_not_allowed(json: ModuleType) -> None:
+    """Test JSON array with trailing comma if not allowed."""
+    with pytest.raises(json.JSONSyntaxError) as exc_info:
+        json.loads("[0,]")
+
+    exc: Any = exc_info.value
+    assert exc.msg == "Trailing comma is not allowed"
+    assert exc.lineno == 1
+    assert exc.colno == 3
 
 
 @pytest.mark.parametrize(("string", "expected"), [
