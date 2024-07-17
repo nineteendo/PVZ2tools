@@ -1,12 +1,4 @@
-# Personal Data
-OBBEdit/2b_obb_original
-OBBEdit/2c_obb_modded
-OBBEdit/6_rsg_encoded_patches
-OBBEdit/7_rsg_decoded_patches
-ShopCreator/
-
 # MISC
-fail.txt
 .DS_Store
 
 # Byte-compiled / optimized / DLL files

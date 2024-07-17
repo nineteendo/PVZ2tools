@@ -10,7 +10,7 @@ __all__: list[str] = [
 
 from collections.abc import Callable
 
-from typing_extensions import Any
+from typing_extensions import Any  # type: ignore
 
 
 class DuplicateKey(str):  # noqa: SLOT000

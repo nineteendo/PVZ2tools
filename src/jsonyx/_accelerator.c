@@ -55,8 +55,6 @@ py_encode_basestring_ascii(PyObject* Py_UNUSED(self), PyObject *pystr);
 static PyObject *
 scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyObject *pystr, Py_ssize_t idx, Py_ssize_t *next_idx_ptr);
 static PyObject *
-_build_rval_index_tuple(PyObject *rval, Py_ssize_t idx);
-static PyObject *
 scanner_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 static void
 scanner_dealloc(PyObject *self);
@@ -365,33 +363,6 @@ raise_errmsg(const char *msg, PyObject *filename, PyObject *s, Py_ssize_t end)
         PyErr_SetObject(JSONSyntaxError, exc);
         Py_DECREF(exc);
     }
-}
-
-static PyObject *
-_build_rval_index_tuple(PyObject *rval, Py_ssize_t idx) {
-    /* return (rval, idx) tuple, stealing reference to rval */
-    PyObject *tpl;
-    PyObject *pyidx;
-    /*
-    steal a reference to rval, returns (rval, idx)
-    */
-    if (rval == NULL) {
-        return NULL;
-    }
-    pyidx = PyLong_FromSsize_t(idx);
-    if (pyidx == NULL) {
-        Py_DECREF(rval);
-        return NULL;
-    }
-    tpl = PyTuple_New(2);
-    if (tpl == NULL) {
-        Py_DECREF(pyidx);
-        Py_DECREF(rval);
-        return NULL;
-    }
-    PyTuple_SET_ITEM(tpl, 0, rval);
-    PyTuple_SET_ITEM(tpl, 1, pyidx);
-    return tpl;
 }
 
 static PyObject *
@@ -1284,7 +1255,6 @@ encoder_listencode_obj(PyEncoderObject *s, PyObject *markers, _PyUnicodeWriter *
                        PyObject *obj, PyObject *newline_indent)
 {
     /* Encode Python object obj to a JSON term */
-    PyObject *newobj;
     int rv;
 
     if (obj == Py_None) {
