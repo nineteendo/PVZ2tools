@@ -17,6 +17,17 @@ if TYPE_CHECKING:
     from types import ModuleType
 
 
+def test_empty(json: ModuleType) -> None:
+    """Test empty JSON."""
+    with pytest.raises(json.JSONSyntaxError) as exc_info:
+        json.loads("")
+
+    exc: Any = exc_info.value
+    assert exc.msg == "Expecting value"
+    assert exc.lineno == 1
+    assert exc.colno == 1
+
+
 @pytest.mark.parametrize(("string", "expected"), [
     ("true", True),
     ("false", False),
