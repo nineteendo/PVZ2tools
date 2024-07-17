@@ -475,7 +475,7 @@ scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, Py_ssi
             break;
         }
         if (next == len) {
-            raise_errmsg("Invalid backslash escape", pyfilename, pystr, next);
+            raise_errmsg("Expecting escaped character", pyfilename, pystr, next);
             goto bail;
         }
         c = PyUnicode_READ(kind, buf, next);
@@ -491,6 +491,9 @@ scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, Py_ssi
                 case 'n': c = '\n'; break;
                 case 'r': c = '\r'; break;
                 case 't': c = '\t'; break;
+                case '\n':
+                    raise_errmsg("Expecting escaped character", pyfilename, pystr, end - 1);
+                    goto bail;
                 default: c = 0;
             }
             if (c == 0) {

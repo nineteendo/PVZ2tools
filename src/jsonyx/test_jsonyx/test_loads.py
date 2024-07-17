@@ -173,6 +173,29 @@ def test_string(json: ModuleType, string: str, expected: Any) -> None:
     assert json.loads(string) == expected
 
 
+@pytest.mark.parametrize(("string", "msg", "colno"), [
+    ('"', "Unterminated string", 1),
+    ('"\n', "Unterminated string", 1),
+    ('"\b"', "Unescaped control character", 2),
+    ('"\\', "Expecting escaped character", 3),
+    ('"\\\n', "Expecting escaped character", 3),
+    (r'"\a"', "Invalid backslash escape", 3),
+    (r'"\u"', "Expecting 4 hex digits", 4),
+    (r'"\ud800\u"', "Expecting 4 hex digits", 10),
+])
+def test_invalid_string(
+    json: ModuleType, string: str, msg: str, colno: int,
+) -> None:
+    """Test invalid JSON string."""
+    with pytest.raises(json.JSONSyntaxError) as exc_info:
+        json.loads(string)
+
+    exc: Any = exc_info.value
+    assert exc.msg == msg
+    assert exc.lineno == 1
+    assert exc.colno == colno
+
+
 @pytest.mark.parametrize(("string", "expected"), [
     # Empty array
     ("[]", []),

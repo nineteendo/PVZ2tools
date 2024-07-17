@@ -70,7 +70,8 @@ def _unescape_unicode(filename: str, s: str, pos: int) -> int:
     raise JSONSyntaxError(msg, filename, s, pos)
 
 
-def _scan_string(filename: str, s: str, end: int) -> (  # noqa: C901
+# pylint: disable-next=R0912
+def _scan_string(filename: str, s: str, end: int) -> (  # noqa: C901, PLR0912
     tuple[str, int]
 ):
     chunks: list[str] = []
@@ -105,7 +106,7 @@ def _scan_string(filename: str, s: str, end: int) -> (  # noqa: C901
         try:
             esc = s[end]
         except IndexError:
-            msg = "Invalid backslash escape"
+            msg = "Expecting escaped character"
             raise JSONSyntaxError(msg, filename, s, end) from None
 
         # If not a unicode escape sequence, must be in the lookup table
@@ -113,6 +114,10 @@ def _scan_string(filename: str, s: str, end: int) -> (  # noqa: C901
             try:
                 char = _UNESCAPE[esc]
             except KeyError:
+                if esc == "\n":
+                    msg = "Expecting escaped character"
+                    raise JSONSyntaxError(msg, filename, s, end) from None
+
                 msg = "Invalid backslash escape"
                 raise JSONSyntaxError(msg, filename, s, end) from None
 
