@@ -24,6 +24,7 @@ class JSONNamespace:  # pylint: disable=R0903
     indent: int | str | None
     filename: str | None
     nonstrict: bool
+    sort_keys: bool
 
 
 def register(parser: ArgumentParser) -> None:
@@ -37,6 +38,7 @@ def register(parser: ArgumentParser) -> None:
         "--indent-tab", action="store_const", const="\t", dest="indent",
     )
     parser.add_argument("--nonstrict", action="store_true")
+    parser.add_argument("--sort-keys", action="store_true")
 
 
 def run(args: JSONNamespace) -> None:
@@ -66,6 +68,7 @@ def run(args: JSONNamespace) -> None:
         indent=args.indent,
         item_separator="," if args.compact else ", ",
         key_separator=":" if args.compact else ": ",
+        sort_keys=args.sort_keys,
     ))
 
 

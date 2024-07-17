@@ -25,10 +25,11 @@ def encode_basestring_ascii(s: str) -> str:
     """Return the ASCII-only JSON representation of a Python string."""
 
 
-def make_encoder(
+def make_encoder(  # noqa: PLR0917, PLR0913
     indent: str | None,
     key_separator: str,
     item_separator: str,
+    sort_keys: bool,  # noqa: FBT001
     allow_nan: bool,  # noqa: FBT001
     ensure_ascii: bool,  # noqa: FBT001
 ) -> Callable[[Any], str]:

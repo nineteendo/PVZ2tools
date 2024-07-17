@@ -133,6 +133,7 @@ class JSONEncoder:
         indent: int | str | None = None,
         item_separator: str = ", ",
         key_separator: str = ": ",
+        sort_keys: bool = False,
     ) -> None:
         """Create new JSON encoder."""
         if indent is not None:
@@ -144,12 +145,12 @@ class JSONEncoder:
             self._encoder: Callable[[Any], str] | None = None
         else:
             self._encoder = make_encoder(
-                indent, key_separator, item_separator, "nan" in allow,
-                ensure_ascii,
+                indent, key_separator, item_separator, sort_keys,
+                "nan" in allow, ensure_ascii,
             )
 
         self._writer: Callable[[Any, SupportsWrite[str]], None] = make_writer(
-            indent, key_separator, item_separator, "nan" in allow,
+            indent, key_separator, item_separator, sort_keys, "nan" in allow,
             ensure_ascii,
         )
 
@@ -209,6 +210,7 @@ def dumps(  # noqa: PLR0913
     indent: int | str | None = None,
     item_separator: str = ", ",
     key_separator: str = ": ",
+    sort_keys: bool = False,
 ) -> str:
     """Serialize a Python object to a JSON string."""
     return JSONEncoder(
@@ -217,6 +219,7 @@ def dumps(  # noqa: PLR0913
         indent=indent,
         item_separator=item_separator,
         key_separator=key_separator,
+        sort_keys=sort_keys,
     ).dumps(obj)
 
 

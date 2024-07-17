@@ -31,6 +31,7 @@ typedef struct _PyEncoderObject {
     PyObject *indent;
     PyObject *key_separator;
     PyObject *item_separator;
+    int sort_keys;
     int allow_nan;
     int ensure_ascii;
 } PyEncoderObject;
@@ -1136,17 +1137,17 @@ static PyType_Spec PyScannerType_spec = {
 static PyObject *
 encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    static char *kwlist[] = {"indent", "key_separator", "item_separator", "allow_nan", "ensure_ascii", NULL};
+    static char *kwlist[] = {"indent", "key_separator", "item_separator", "sort_keys", "allow_nan", "ensure_ascii", NULL};
 
     PyEncoderObject *s;
     PyObject *indent, *key_separator;
     PyObject *item_separator;
-    int allow_nan, ensure_ascii;
+    int sort_keys, allow_nan, ensure_ascii;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OUUpp:make_encoder", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OUUppp:make_encoder", kwlist,
         &indent,
         &key_separator, &item_separator,
-        &allow_nan, &ensure_ascii))
+        &sort_keys, &allow_nan, &ensure_ascii))
         return NULL;
 
     s = (PyEncoderObject *)type->tp_alloc(type, 0);
@@ -1156,6 +1157,7 @@ encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     s->indent = Py_NewRef(indent);
     s->key_separator = Py_NewRef(key_separator);
     s->item_separator = Py_NewRef(item_separator);
+    s->sort_keys = sort_keys;
     s->allow_nan = allow_nan;
     s->ensure_ascii = ensure_ascii;
     return (PyObject *)s;
@@ -1404,9 +1406,9 @@ encoder_listencode_dict(PyEncoderObject *s, PyObject *markers, _PyUnicodeWriter 
         }
     }
 
-    if (!PyDict_CheckExact(dct)) {
+    if (s->sort_keys || !PyDict_CheckExact(dct)) {
         items = PyMapping_Items(dct);
-        if (items == NULL)
+        if (items == NULL || (s->sort_keys && PyList_Sort(items) < 0))
             goto bail;
 
         for (Py_ssize_t  i = 0; i < PyList_GET_SIZE(items); i++) {

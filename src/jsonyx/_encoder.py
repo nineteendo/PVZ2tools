@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from typing_extensions import Any  # type: ignore
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
     from _typeshed import SupportsWrite
 
@@ -65,6 +65,7 @@ def make_writer(  # noqa: C901, PLR0915
     indent: str | None,
     key_separator: str,
     item_separator: str,
+    sort_keys: bool,  # noqa: FBT001
     allow_nan: bool,  # noqa: FBT001
     ensure_ascii: bool,  # noqa: FBT001
 ) -> Callable[[Any, SupportsWrite[str]], None]:
@@ -151,7 +152,10 @@ def make_writer(  # noqa: C901, PLR0915
             write(current_indent)
 
         first: bool = True
-        for key, value in dct.items():
+        items: Iterable[tuple[Any, Any]] = (
+            sorted(dct.items()) if sort_keys else dct.items()
+        )
+        for key, value in items:
             if not isinstance(key, str):
                 msg = f"Keys must be str, not {type(key).__name__}"
                 raise TypeError(msg)
