@@ -171,7 +171,7 @@ ascii_escape_unichar(Py_UCS4 c, unsigned char *output, Py_ssize_t chars)
                 c = Py_UNICODE_LOW_SURROGATE(c);
                 output[chars++] = '\\';
             }
-            if (0xd800 <= c <= 0xdfff) {
+            if (0xd800 <= c && c <= 0xdfff) {
                 PyErr_Format(PyExc_ValueError,
                              "Surrogate '\\u%x' can not be escaped", c);
                 return -1;
@@ -349,8 +349,11 @@ static void
 raise_errmsg(const char *msg, PyObject *filename, PyObject *s, Py_ssize_t end)
 {
     /* Use JSONSyntaxError exception to raise a nice looking SyntaxError subclass */
-    PyObject *JSONSyntaxError = _PyImport_GetModuleAttrString("jsonyx",
-                                                              "JSONSyntaxError");
+    PyObject *json = PyImport_ImportModule("jsonyx");
+    if (json == NULL) {
+        return;
+    }
+    PyObject *JSONSyntaxError = PyObject_GetAttrString(json, "JSONSyntaxError");
     if (JSONSyntaxError == NULL) {
         return;
     }
