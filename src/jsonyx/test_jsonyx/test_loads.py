@@ -135,17 +135,14 @@ def test_number(json: ModuleType, string: str, expected: Any) -> None:
     assert obj == expected
 
 
-@pytest.mark.parametrize(("string", "msg"), [
-    ("1e400", "Number is too large"),
-    ("-1e400", "Number is too large"),
-])
-def test_big_number(json: ModuleType, string: str, msg: str) -> None:
+@pytest.mark.parametrize("string", ["1e400", "-1e400"])
+def test_big_number(json: ModuleType, string: str) -> None:
     """Test big JSON number."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
         json.loads(string)
 
     exc: Any = exc_info.value
-    assert exc.msg == msg
+    assert exc.msg == "Number is too large"
     assert exc.lineno == 1
     assert exc.colno == 1
 
@@ -244,22 +241,6 @@ def test_array(json: ModuleType, string: str, expected: Any) -> None:
     assert json.loads(string) == expected
 
 
-def test_array_trailing_comma_allowed(json: ModuleType) -> None:
-    """Test JSON array with trailing comma if allowed."""
-    assert json.loads("[0,]", allow=TRAILING_COMMA) == [0]
-
-
-def test_array_trailing_comma_not_allowed(json: ModuleType) -> None:
-    """Test JSON array with trailing comma if not allowed."""
-    with pytest.raises(json.JSONSyntaxError) as exc_info:
-        json.loads("[0,]")
-
-    exc: Any = exc_info.value
-    assert exc.msg == "Trailing comma is not allowed"
-    assert exc.lineno == 1
-    assert exc.colno == 3
-
-
 @pytest.mark.parametrize(("string", "expected"), [
     # Empty object
     ("{}", {}),
@@ -269,6 +250,34 @@ def test_array_trailing_comma_not_allowed(json: ModuleType) -> None:
 def test_object(json: ModuleType, string: str, expected: Any) -> None:
     """Test JSON object."""
     assert json.loads(string) == expected
+
+
+@pytest.mark.parametrize(("string", "expected"), [
+    ("[0,]", [0]),
+    ('{"k": 0,}', {"k": 0}),
+])
+def test_trailing_comma_allowed(
+    json: ModuleType, string: str, expected: Any,
+) -> None:
+    """Test trailing comma if allowed."""
+    assert json.loads(string, allow=TRAILING_COMMA) == expected
+
+
+@pytest.mark.parametrize(("string", "colno"), [
+    ("[0,]", 3),
+    ('{"k": 0,}', 8),
+])
+def test_trailing_comma_not_allowed(
+    json: ModuleType, string: str, colno: int,
+) -> None:
+    """Test trailing comma if not allowed."""
+    with pytest.raises(json.JSONSyntaxError) as exc_info:
+        json.loads(string)
+
+    exc: Any = exc_info.value
+    assert exc.msg == "Trailing comma is not allowed"
+    assert exc.lineno == 1
+    assert exc.colno == colno
 
 
 @pytest.mark.parametrize(("string", "msg"), [
