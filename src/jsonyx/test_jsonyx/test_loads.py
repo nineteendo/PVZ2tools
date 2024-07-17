@@ -150,8 +150,21 @@ def test_string(loads: FunctionType, string: str, expected: Any) -> None:
     # Empty array
     ("[]", []),
 
-    # TODO(Nice Zombies): add more tests
-])
+    # One value
+    ('[""]', [""]),
+    ("[0]", [0]),
+    ("[{}]", [{}]),
+    ("[[]]", [[]]),
+    ("[true]", [True]),
+    ("[false]", [False]),
+    ("[null]", [None]),
+
+    # Multiple values
+    ("[1, 2, 3]", [1, 2, 3]),
+
+    # Space before delimiter
+    ("[1 ,2]", [1, 2]),
+])  # type: ignore
 def test_array(loads: FunctionType, string: str, expected: Any) -> None:
     """Test JSON array."""
     assert loads(string) == expected
