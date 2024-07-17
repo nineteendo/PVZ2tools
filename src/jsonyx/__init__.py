@@ -7,6 +7,7 @@ __all__: list[str] = [
     "DUPLICATE_KEYS",
     "EVERYTHING",
     "NAN",
+    "NOTHING",
     "TRAILING_COMMA",
     "DuplicateKey",
     "JSONDecoder",
@@ -41,6 +42,7 @@ try:
 except ImportError:
     make_encoder = None
 
+NOTHING: frozenset[str] = frozenset()
 COMMENTS: frozenset[str] = frozenset({"comments"})
 DUPLICATE_KEYS: frozenset[str] = frozenset({"duplicate_keys"})
 NAN: frozenset[str] = frozenset({"nan"})
