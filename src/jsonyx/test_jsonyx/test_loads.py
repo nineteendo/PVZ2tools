@@ -49,18 +49,14 @@ def test_nan_allowed(json: ModuleType, string: str, expected: Any) -> None:
     assert isnan(obj) if isnan(expected) else obj == expected
 
 
-@pytest.mark.parametrize(("string", "msg"), [
-    ("NaN", "NaN is not allowed"),
-    ("Infinity", "Infinity is not allowed"),
-    ("-Infinity", "-Infinity is not allowed"),
-])
-def test_nan_not_allowed(json: ModuleType, string: str, msg: str) -> None:
+@pytest.mark.parametrize("string", ["NaN", "Infinity", "-Infinity"])
+def test_nan_not_allowed(json: ModuleType, string: str) -> None:
     """Test NaN if not allowed."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
         json.loads(string)
 
     exc: Any = exc_info.value
-    assert exc.msg == msg
+    assert exc.msg == f"{string} is not allowed"
     assert exc.lineno == 1
     assert exc.colno == 1
 
@@ -280,16 +276,13 @@ def test_trailing_comma_not_allowed(
     assert exc.colno == colno
 
 
-@pytest.mark.parametrize(("string", "msg"), [
-    ("-", "Expecting value"),
-    ("foo", "Expecting value"),
-])
-def test_invalid_value(json: ModuleType, string: str, msg: str) -> None:
+@pytest.mark.parametrize("string", ["-", "foo"])
+def test_invalid_value(json: ModuleType, string: str) -> None:
     """Test invalid JSON value."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
         json.loads(string)
 
     exc: Any = exc_info.value
-    assert exc.msg == msg
+    assert exc.msg == "Expecting value"
     assert exc.lineno == 1
     assert exc.colno == 1
