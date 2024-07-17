@@ -29,8 +29,6 @@ def test_keywords(json: ModuleType, string: str, expected: Any) -> None:
 
 @pytest.mark.parametrize(("string", "expected"), [
     ("NaN", nan),
-    ("1e400", inf),
-    ("-1e400", -inf),
     ("Infinity", inf),
     ("-Infinity", -inf),
 ])
@@ -42,10 +40,8 @@ def test_nan_allowed(json: ModuleType, string: str, expected: Any) -> None:
 
 @pytest.mark.parametrize(("string", "msg"), [
     ("NaN", "NaN is not allowed"),
-    ("1e400", "Infinity is not allowed"),
-    ("-1e400", "Infinity is not allowed"),
     ("Infinity", "Infinity is not allowed"),
-    ("-Infinity", "Infinity is not allowed"),
+    ("-Infinity", "-Infinity is not allowed"),
 ])
 def test_nan_not_allowed(json: ModuleType, string: str, msg: str) -> None:
     """Test NaN if not allowed."""
@@ -126,6 +122,21 @@ def test_number(json: ModuleType, string: str, expected: Any) -> None:
     obj: Any = json.loads(string)
     assert isinstance(obj, type(expected))
     assert obj == expected
+
+
+@pytest.mark.parametrize(("string", "msg"), [
+    ("1e400", "Number is too large"),
+    ("-1e400", "Number is too large"),
+])
+def test_invalid_number(json: ModuleType, string: str, msg: str) -> None:
+    """Test invalid JSON number."""
+    with pytest.raises(json.JSONSyntaxError) as exc_info:
+        json.loads(string)
+
+    exc: Any = exc_info.value
+    assert exc.msg == msg
+    assert exc.lineno == 1
+    assert exc.colno == 1
 
 
 @pytest.mark.parametrize(("string", "expected"), [

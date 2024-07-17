@@ -945,10 +945,10 @@ _match_number_unicode(PyScannerObject *s, PyObject *pyfilename, PyObject *pystr,
     }
     if (is_float) {
         rval = PyFloat_FromString(numstr);
-        if (!s->allow_nan && !isfinite(PyFloat_AS_DOUBLE(rval))) {
+        if (!isfinite(PyFloat_AS_DOUBLE(rval))) {
             Py_DECREF(numstr);
             Py_DECREF(rval);
-            raise_errmsg("Infinity is not allowed", pyfilename, pystr, start);
+            raise_errmsg("Number is too large", pyfilename, pystr, start);
             return NULL;
         }
     }
@@ -1072,7 +1072,7 @@ scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyOb
                 PyUnicode_READ(kind, str, idx + 8) == 'y') {
                 *next_idx_ptr = idx + 9;
                 if (!s->allow_nan) {
-                    raise_errmsg("Infinity is not allowed", pyfilename, pystr, idx);
+                    raise_errmsg("-Infinity is not allowed", pyfilename, pystr, idx);
                     return NULL;
                 }
                 Py_RETURN_INF(-1);

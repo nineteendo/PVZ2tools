@@ -327,8 +327,8 @@ except ImportError:
                 end = number.end()
                 if frac or exp:
                     result = float(integer + (frac or "") + (exp or ""))
-                    if not allow_nan and isinf(result):
-                        msg = "Infinity is not allowed"
+                    if isinf(result):
+                        msg = "Number is too large"
                         raise JSONSyntaxError(msg, filename, s, idx)
                 else:
                     result = int(integer)
@@ -346,7 +346,7 @@ except ImportError:
                 result, end = inf, idx + 8
             elif nextchar == "-" and s[idx:idx + 9] == "-Infinity":
                 if not allow_nan:
-                    msg = "Infinity is not allowed"
+                    msg = "-Infinity is not allowed"
                     raise JSONSyntaxError(msg, filename, s, idx)
 
                 result, end = -inf, idx + 9
