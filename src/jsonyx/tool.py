@@ -8,10 +8,10 @@ __all__: list[str] = ["JSONNamespace", "register", "run"]
 import sys
 from argparse import ArgumentParser
 from pathlib import Path
-from sys import stdin, stdout
+from sys import stdin
 
 from jsonyx import (
-    EVERYTHING, NAN, JSONSyntaxError, dump, format_syntax_error, loads,
+    EVERYTHING, NAN, JSONSyntaxError, dumps, format_syntax_error, loads,
 )
 from typing_extensions import Any  # type: ignore
 
@@ -59,16 +59,14 @@ def run(args: JSONNamespace) -> None:
     except JSONSyntaxError as exc:
         raise SystemExit(format_syntax_error(exc)) from None
 
-    dump(
+    print(dumps(
         obj,
-        stdout,
         allow=NAN if args.nonstrict else [],
         ensure_ascii=args.ensure_ascii,
         indent=args.indent,
         item_separator="," if args.compact else ", ",
         key_separator=":" if args.compact else ": ",
-    )
-    print()
+    ))
 
 
 def _main() -> None:

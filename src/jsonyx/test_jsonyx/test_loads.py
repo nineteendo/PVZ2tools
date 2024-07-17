@@ -21,14 +21,17 @@ def get_loads(json: ModuleType) -> FunctionType:
     return json.loads
 
 
-def test_keywords(loads: FunctionType) -> None:
+@pytest.mark.parametrize(("string", "expected"), {
+    ("true", True),
+    ("false", False),
+    ("null", None),
+})
+def test_keywords(loads: FunctionType, string: str, expected: Any) -> None:
     """Test JSON keywords."""
-    assert loads("true") is True
-    assert loads("false") is False
-    assert loads("null") is None
+    assert loads(string) is expected
 
 
-@pytest.mark.parametrize(("input_string", "expected_result"), {
+@pytest.mark.parametrize(("string", "expected"), {
     # sign
     ("-1", -1),
     ("1", 1),
@@ -91,10 +94,8 @@ def test_keywords(loads: FunctionType) -> None:
     ("-1.1", -1.1),
     ("-1.1e1", -11.0),
 })
-def test_number(
-    input_string: str, expected_result: float, loads: FunctionType,
-) -> None:
+def test_number(loads: FunctionType, string: str, expected: float) -> None:
     """Test JSON number."""
-    obj: Any = loads(input_string)
-    assert isinstance(obj, type(expected_result))
-    assert obj == expected_result
+    obj: Any = loads(string)
+    assert isinstance(obj, type(expected))
+    assert obj == expected

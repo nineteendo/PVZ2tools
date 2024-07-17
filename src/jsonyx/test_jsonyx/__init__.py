@@ -2,7 +2,7 @@
 """JSON tests."""
 from __future__ import annotations
 
-__all__: list[str] = []
+__all__: list[str] = ["get_json"]
 
 from test.support.import_helper import import_fresh_module  # type: ignore
 from typing import TYPE_CHECKING
