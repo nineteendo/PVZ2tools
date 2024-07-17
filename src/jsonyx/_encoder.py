@@ -44,6 +44,10 @@ except ImportError:
                 return _ESCAPE_DCT[s]
             except KeyError:
                 uni: int = ord(s)
+                if 0xd800 <= uni <= 0xdfff:
+                    msg: str = f"Surrogate {s!r} can not be escaped"
+                    raise ValueError(msg) from None
+
                 if uni < 0x10000:
                     return f"\\u{uni:04x}"
 

@@ -171,6 +171,11 @@ ascii_escape_unichar(Py_UCS4 c, unsigned char *output, Py_ssize_t chars)
                 c = Py_UNICODE_LOW_SURROGATE(c);
                 output[chars++] = '\\';
             }
+            if (0xd800 <= c <= 0xdfff) {
+                PyErr_Format(PyExc_ValueError,
+                             "Surrogate '\\u%x' can not be escaped", c);
+                return -1;
+            }
             output[chars++] = 'u';
             output[chars++] = Py_hexdigits[(c >> 12) & 0xf];
             output[chars++] = Py_hexdigits[(c >>  8) & 0xf];
@@ -234,6 +239,9 @@ ascii_escape_unicode(PyObject *pystr)
         }
         else {
             chars = ascii_escape_unichar(c, output, chars);
+            if (chars < 0) {
+                return NULL;
+            }
         }
     }
     output[chars++] = '"';
@@ -341,7 +349,7 @@ static void
 raise_errmsg(const char *msg, PyObject *filename, PyObject *s, Py_ssize_t end)
 {
     /* Use JSONSyntaxError exception to raise a nice looking SyntaxError subclass */
-    PyObject *JSONSyntaxError = _PyImport_GetModuleAttrString("jsonyx.scanner",
+    PyObject *JSONSyntaxError = _PyImport_GetModuleAttrString("jsonyx",
                                                               "JSONSyntaxError");
     if (JSONSyntaxError == NULL) {
         return;
@@ -929,12 +937,15 @@ _match_number_unicode(PyScannerObject *s, PyObject *pyfilename, PyObject *pystr,
     for (i = 0; i < n; i++) {
         buf[i] = (char) PyUnicode_READ(kind, str, i + start);
     }
-    if (is_float)
+    if (is_float) {
         rval = PyFloat_FromString(numstr);
         if (!s->allow_nan && !isfinite(PyFloat_AS_DOUBLE(rval))) {
+            Py_DECREF(numstr);
+            Py_DECREF(rval);
             raise_errmsg("Infinity is not allowed", pyfilename, pystr, start);
             return NULL;
         }
+    }
     else
         rval = PyLong_FromString(buf, NULL, 10);
     Py_DECREF(numstr);
@@ -1073,10 +1084,10 @@ scanner_call(PyScannerObject *self, PyObject *args, PyObject *kwds)
     PyObject *pyfilename;
     PyObject *pystr;
     PyObject *rval;
-    Py_ssize_t idx = -1;
+    Py_ssize_t idx = 0;
     Py_ssize_t next_idx = -1;
     static char *kwlist[] = {"filename", "string", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "UUn:scan_once", kwlist, &pyfilename, &pystr) ||
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "UU:scan_once", kwlist, &pyfilename, &pystr) ||
         _skip_comments(self, pyfilename, pystr, &idx))
     {
         return NULL;
@@ -1087,6 +1098,10 @@ scanner_call(PyScannerObject *self, PyObject *args, PyObject *kwds)
     }
     rval = scan_once_unicode(self, memo, pyfilename, pystr, idx, &next_idx);
     Py_DECREF(memo);
+    if (rval == NULL) {
+        return NULL;
+    }
+    idx = next_idx;
     if (_skip_comments(self, pyfilename, pystr, &idx)) {
         return NULL;
     }

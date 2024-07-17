@@ -21,11 +21,11 @@ def get_loads(json: ModuleType) -> FunctionType:
     return json.loads
 
 
-@pytest.mark.parametrize(("string", "expected"), {
+@pytest.mark.parametrize(("string", "expected"), [
     ("true", True),
     ("false", False),
     ("null", None),
-})
+])
 def test_keywords(loads: FunctionType, string: str, expected: Any) -> None:
     """Test JSON keywords."""
     assert loads(string) is expected
@@ -94,8 +94,71 @@ def test_keywords(loads: FunctionType, string: str, expected: Any) -> None:
     ("-1.1", -1.1),
     ("-1.1e1", -11.0),
 })
-def test_number(loads: FunctionType, string: str, expected: float) -> None:
+def test_number(loads: FunctionType, string: str, expected: Any) -> None:
     """Test JSON number."""
     obj: Any = loads(string)
     assert isinstance(obj, type(expected))
     assert obj == expected
+
+
+@pytest.mark.parametrize(("string", "expected"), [
+    # Empty string
+    ('""', ""),
+
+    # UTF-8
+    ('"$"', "$"),
+    ('"\u00a3"', "\u00a3"),
+    ('"\u0418"', "\u0418"),
+    ('"\u0939"', "\u0939"),
+    ('"\u20ac"', "\u20ac"),
+    ('"\ud55c"', "\ud55c"),
+    ('"\U00010348"', "\U00010348"),
+    ('"\U001096B3"', "\U001096B3"),
+
+    # Backslash escapes
+    (r'"\""', '"'),
+    (r'"\\"', "\\"),
+    (r'"\/"', "/"),
+    (r'"\b"', "\b"),
+    (r'"\f"', "\f"),
+    (r'"\n"', "\n"),
+    (r'"\r"', "\r"),
+    (r'"\t"', "\t"),
+
+    # Unicode escape sequences
+    (r'"\u0024"', "$"),
+    (r'"\u00a3"', "\u00a3"),
+    (r'"\u0418"', "\u0418"),
+    (r'"\u0939"', "\u0939"),
+    (r'"\u20ac"', "\u20ac"),
+    (r'"\ud55c"', "\ud55c"),
+    (r'"\ud800\udf48"', "\U00010348"),
+    (r'"\udbe5\udeb3"', "\U001096B3"),
+
+    # TODO(Nice Zombies): add more tests
+])
+def test_string(loads: FunctionType, string: str, expected: Any) -> None:
+    """Test JSON string."""
+    assert loads(string) == expected
+
+
+@pytest.mark.parametrize(("string", "expected"), [
+    # Empty array
+    ("[]", []),
+
+    # TODO(Nice Zombies): add more tests
+])
+def test_array(loads: FunctionType, string: str, expected: Any) -> None:
+    """Test JSON array."""
+    assert loads(string) == expected
+
+
+@pytest.mark.parametrize(("string", "expected"), [
+    # Empty object
+    ("{}", {}),
+
+    # TODO(Nice Zombies): add more tests
+])
+def test_object(loads: FunctionType, string: str, expected: Any) -> None:
+    """Test JSON object."""
+    assert loads(string) == expected

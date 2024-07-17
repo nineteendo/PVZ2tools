@@ -12,8 +12,12 @@ import pytest
 if TYPE_CHECKING:
     from types import ModuleType
 
-cjson: ModuleType | None = import_fresh_module("jsonyx", fresh=["_jsonyx"])
-pyjson: ModuleType | None = import_fresh_module("jsonyx", blocked=["_jsonyx"])
+cjson: ModuleType | None = import_fresh_module(
+    "jsonyx", fresh=["jsonyx._accelerator"],
+)
+pyjson: ModuleType | None = import_fresh_module(
+    "jsonyx", blocked=["jsonyx._accelerator"],
+)
 
 
 @pytest.fixture(params=[cjson, pyjson], ids=["cjson", "pyjson"], name="json")
@@ -21,6 +25,6 @@ def get_json(request: pytest.FixtureRequest) -> ModuleType:
     """Get JSON module."""
     result: ModuleType | None = request.param
     if result is None:
-        pytest.skip("requires _jsonyx")
+        pytest.skip("requires jsonyx._accelerator")
 
     return result
