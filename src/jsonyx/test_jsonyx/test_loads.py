@@ -32,11 +32,11 @@ def test_keywords(loads: FunctionType, string: str, expected: Any) -> None:
 
 
 @pytest.mark.parametrize(("string", "expected"), {
-    # sign
+    # Sign
     ("-1", -1),
     ("1", 1),
 
-    # integer
+    # Integer
     ("0", 0),
     ("1", 1),
     ("2", 2),
@@ -49,7 +49,7 @@ def test_keywords(loads: FunctionType, string: str, expected: Any) -> None:
     ("9", 9),
     ("10", 10),
 
-    # fraction
+    # Fraction
     ("1.0", 1.0),
     ("1.1", 1.1),
     ("1.2", 1.2),
@@ -62,16 +62,16 @@ def test_keywords(loads: FunctionType, string: str, expected: Any) -> None:
     ("1.9", 1.9),
     ("1.01", 1.01),
 
-    # exponent e
+    # Exponent e
     ("1e1", 10.0),
     ("1E1", 10.0),
 
-    # exponent sign
+    # Exponent sign
     ("1e-1", 0.1),
     ("1e1", 10.0),
     ("1e+1", 10.0),
 
-    # exponent power
+    # Exponent power
     ("1e0", 1.0),
     ("1e1", 10.0),
     ("1e2", 100.0),
@@ -84,7 +84,7 @@ def test_keywords(loads: FunctionType, string: str, expected: Any) -> None:
     ("1e9", 1000000000.0),
     ("1e10", 10000000000.0),
 
-    # parts
+    # Parts
     ("1", 1),
     ("1e1", 10.0),
     ("1.1", 1.1),
@@ -132,10 +132,14 @@ def test_number(loads: FunctionType, string: str, expected: Any) -> None:
     (r'"\u0939"', "\u0939"),
     (r'"\u20ac"', "\u20ac"),
     (r'"\ud55c"', "\ud55c"),
+    (r'"\ud800"', "\ud800"),
     (r'"\ud800\udf48"', "\U00010348"),
     (r'"\udbe5\udeb3"', "\U001096B3"),
 
-    # TODO(Nice Zombies): add more tests
+    # Multiple characters
+    ('"foo"', "foo"),
+    (r'"foo\/bar"', "foo/bar"),
+    (r'"\ud800\u0024"', "\ud800$"),
 ])
 def test_string(loads: FunctionType, string: str, expected: Any) -> None:
     """Test JSON string."""
