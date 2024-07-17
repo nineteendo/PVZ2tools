@@ -4,21 +4,17 @@ from __future__ import annotations
 
 __all__: list[str] = []
 
+from math import inf, isnan, nan
 from typing import TYPE_CHECKING
 
 import pytest
+from jsonyx import NAN
 # pylint: disable-next=W0611
 from jsonyx.test_jsonyx import get_json  # type: ignore # noqa: F401
 from typing_extensions import Any
 
 if TYPE_CHECKING:
-    from types import FunctionType, ModuleType
-
-
-@pytest.fixture(name="loads")
-def get_loads(json: ModuleType) -> FunctionType:
-    """Get JSON loads."""
-    return json.loads
+    from types import ModuleType
 
 
 @pytest.mark.parametrize(("string", "expected"), [
@@ -26,9 +22,40 @@ def get_loads(json: ModuleType) -> FunctionType:
     ("false", False),
     ("null", None),
 ])
-def test_keywords(loads: FunctionType, string: str, expected: Any) -> None:
+def test_keywords(json: ModuleType, string: str, expected: Any) -> None:
     """Test JSON keywords."""
-    assert loads(string) is expected
+    assert json.loads(string) is expected
+
+
+@pytest.mark.parametrize(("string", "expected"), [
+    ("NaN", nan),
+    ("1e400", inf),
+    ("-1e400", -inf),
+    ("Infinity", inf),
+    ("-Infinity", -inf),
+])
+def test_nan_allowed(json: ModuleType, string: str, expected: Any) -> None:
+    """Test NaN if allowed."""
+    obj: Any = json.loads(string, allow=NAN)
+    assert isnan(obj) if isnan(expected) else obj == expected
+
+
+@pytest.mark.parametrize(("string", "msg"), [
+    ("NaN", "NaN is not allowed"),
+    ("1e400", "Infinity is not allowed"),
+    ("-1e400", "Infinity is not allowed"),
+    ("Infinity", "Infinity is not allowed"),
+    ("-Infinity", "Infinity is not allowed"),
+])
+def test_nan_not_allowed(json: ModuleType, string: str, msg: str) -> None:
+    """Test NaN if not allowed."""
+    with pytest.raises(json.JSONSyntaxError) as exc_info:
+        json.loads(string)
+
+    exc: Any = exc_info.value
+    assert exc.msg == msg
+    assert exc.lineno == 1
+    assert exc.colno == 1
 
 
 @pytest.mark.parametrize(("string", "expected"), {
@@ -94,9 +121,9 @@ def test_keywords(loads: FunctionType, string: str, expected: Any) -> None:
     ("-1.1", -1.1),
     ("-1.1e1", -11.0),
 })
-def test_number(loads: FunctionType, string: str, expected: Any) -> None:
+def test_number(json: ModuleType, string: str, expected: Any) -> None:
     """Test JSON number."""
-    obj: Any = loads(string)
+    obj: Any = json.loads(string)
     assert isinstance(obj, type(expected))
     assert obj == expected
 
@@ -141,9 +168,9 @@ def test_number(loads: FunctionType, string: str, expected: Any) -> None:
     (r'"foo\/bar"', "foo/bar"),
     (r'"\ud800\u0024"', "\ud800$"),
 ])
-def test_string(loads: FunctionType, string: str, expected: Any) -> None:
+def test_string(json: ModuleType, string: str, expected: Any) -> None:
     """Test JSON string."""
-    assert loads(string) == expected
+    assert json.loads(string) == expected
 
 
 @pytest.mark.parametrize(("string", "expected"), [
@@ -165,9 +192,9 @@ def test_string(loads: FunctionType, string: str, expected: Any) -> None:
     # Space before delimiter
     ("[1 ,2]", [1, 2]),
 ])  # type: ignore
-def test_array(loads: FunctionType, string: str, expected: Any) -> None:
+def test_array(json: ModuleType, string: str, expected: Any) -> None:
     """Test JSON array."""
-    assert loads(string) == expected
+    assert json.loads(string) == expected
 
 
 @pytest.mark.parametrize(("string", "expected"), [
@@ -176,6 +203,6 @@ def test_array(loads: FunctionType, string: str, expected: Any) -> None:
 
     # TODO(Nice Zombies): add more tests
 ])
-def test_object(loads: FunctionType, string: str, expected: Any) -> None:
+def test_object(json: ModuleType, string: str, expected: Any) -> None:
     """Test JSON object."""
-    assert loads(string) == expected
+    assert json.loads(string) == expected

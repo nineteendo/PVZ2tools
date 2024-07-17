@@ -8,6 +8,7 @@ from test.support.import_helper import import_fresh_module  # type: ignore
 from typing import TYPE_CHECKING
 
 import pytest
+from jsonyx import JSONSyntaxError
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -18,6 +19,9 @@ cjson: ModuleType | None = import_fresh_module(
 pyjson: ModuleType | None = import_fresh_module(
     "jsonyx", blocked=["jsonyx._accelerator"],
 )
+if cjson:
+    # JSONSyntaxError is cached inside the _jsonyx module
+    cjson.JSONSyntaxError = JSONSyntaxError  # type: ignore
 
 
 @pytest.fixture(params=[cjson, pyjson], ids=["cjson", "pyjson"], name="json")

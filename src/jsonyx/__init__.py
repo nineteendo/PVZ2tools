@@ -88,7 +88,7 @@ class JSONDecoder:
         *,
         allow: Container[Literal[
             "comments", "duplicate_keys", "nan", "trailing_comma",
-        ] | str] = (),
+        ] | str] = NOTHING,
     ) -> None:
         """Create new JSON decoder."""
         self._scanner: Callable[[str, str], tuple[Any]] = make_scanner(
@@ -128,7 +128,7 @@ class JSONEncoder:
     def __init__(  # noqa: PLR0913
         self,
         *,
-        allow: Container[Literal["nan"] | str] = (),
+        allow: Container[Literal["nan"] | str] = NOTHING,
         ensure_ascii: bool = False,
         indent: int | str | None = None,
         item_separator: str = ", ",
@@ -184,7 +184,7 @@ def dump(  # noqa: PLR0913
     obj: Any,
     fp: SupportsWrite[str],
     *,
-    allow: Container[Literal["nan"] | str] = (),
+    allow: Container[Literal["nan"] | str] = NOTHING,
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
@@ -204,7 +204,7 @@ def dump(  # noqa: PLR0913
 def dumps(  # noqa: PLR0913
     obj: Any,
     *,
-    allow: Container[Literal["nan"] | str] = (),
+    allow: Container[Literal["nan"] | str] = NOTHING,
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
@@ -225,7 +225,7 @@ def load(
     *,
     allow: Container[
         Literal["comments", "duplicate_keys", "nan", "trailing_comma"] | str
-    ] = (),
+    ] = NOTHING,
     filename: str = "<string>",
 ) -> Any:
     """Deserialize a JSON file to a Python object."""
@@ -237,7 +237,7 @@ def loads(
     *,
     allow: Container[
         Literal["comments", "duplicate_keys", "nan", "trailing_comma"] | str
-    ] = (),
+    ] = NOTHING,
     filename: str = "<string>",
 ) -> Any:
     """Deserialize a JSON string to a Python object."""
