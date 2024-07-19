@@ -60,8 +60,8 @@ except ImportError:
         return f'"{_ESCAPE_ASCII.sub(replace, s)}"'
 
 
-# pylint: disable-next=R0915
-def make_writer(  # noqa: C901, PLR0915
+# pylint: disable-next=R0915, R0913
+def make_writer(  # noqa: C901, PLR0915, PLR0917, PLR0913
     indent: str | None,
     key_separator: str,
     item_separator: str,

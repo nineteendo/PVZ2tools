@@ -170,7 +170,10 @@ class JSONEncoder:
 
 def format_syntax_error(exc: JSONSyntaxError) -> str:
     """Format JSON syntax error."""
-    caret_line: str = " " * (exc.offset - 1) + "^"  # type: ignore
+    selection_length: int = exc.end_offset - exc.offset  # type: ignore
+    caret_line: str = (  # type: ignore
+        " " * (exc.offset - 1) + "^" * selection_length  # type: ignore
+    )
     exc_type: type[JSONSyntaxError] = type(exc)
     return f"""\
   File {exc.filename!r}, line {exc.lineno:d}, column {exc.colno:d}

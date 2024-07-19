@@ -9,6 +9,7 @@
 def dumps(obj,
           *,
           cache_strings=False,
+          sort_keys=False,
           ): ...
 
 def loads(data,

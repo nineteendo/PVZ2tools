@@ -38,28 +38,38 @@ _match_whitespace: Callable[[str, int], Match[str] | None] = re.compile(
 ).match
 
 
-def _get_err_context(doc: str, pos: int) -> tuple[int, str]:
-    line_start: int = doc.rfind("\n", 0, pos) + 1
-    if (line_end := doc.find("\n", pos)) == -1:
+def _get_err_context(doc: str, start: int, end: int) -> (
+    tuple[int, str, int]
+):
+    line_start: int = doc.rfind("\n", 0, start) + 1
+    if (line_end := doc.find("\n", start)) == -1:
         line_end = len(doc)
 
+    end = min(end, line_end + 1)
     max_chars: int = get_terminal_size().columns - 4  # leading spaces
-    min_start: int = min(line_end - max_chars, pos - max_chars // 2)
-    max_end: int = max(line_start + max_chars, pos + max_chars // 2)
-    text_start: int = max(min_start, line_start)
-    text_end: int = min(line_end, max_end)
+    text_start: int = max(min(
+        line_end - max_chars, end - max_chars // 2 - 1, start - max_chars // 3,
+    ), line_start)
+    text_end: int = min(max(
+        line_start + max_chars, start + max_chars // 2 + 1,
+        end + max_chars // 3,
+    ), line_end)
     text: str = doc[text_start:text_end].expandtabs(1)
     if text_start > line_start:
         text = "..." + text[3:]
 
+    if len(text) > max_chars:
+        end -= len(text) - max_chars
+        text = text[:max_chars // 2 - 1] + "..." + text[-max_chars // 2 + 2:]
+
     if text_end < line_end:
         text = text[:-3] + "..."
 
-    return pos - text_start + 1, text
+    return start - text_start + 1, text, end - text_start + 1
 
 
-def _unescape_unicode(filename: str, s: str, pos: int) -> int:
-    esc: str = s[pos:pos + 4]
+def _unescape_unicode(filename: str, s: str, end: int) -> int:
+    esc: str = s[end:end + 4]
     if len(esc) == 4 and esc[1] not in "xX":
         try:
             return int(esc, 16)
@@ -67,7 +77,7 @@ def _unescape_unicode(filename: str, s: str, pos: int) -> int:
             pass
 
     msg: str = "Expecting 4 hex digits"
-    raise JSONSyntaxError(msg, filename, s, pos)
+    raise JSONSyntaxError(msg, filename, s, end, end + 4)
 
 
 # pylint: disable-next=R0912
@@ -89,7 +99,7 @@ def _scan_string(filename: str, s: str, end: int) -> (  # noqa: C901, PLR0912
             terminator: str = s[end]
         except IndexError:
             msg: str = "Unterminated string"
-            raise JSONSyntaxError(msg, filename, s, str_idx) from None
+            raise JSONSyntaxError(msg, filename, s, str_idx, end) from None
 
         if terminator == '"':
             return "".join(chunks), end + 1
@@ -97,7 +107,7 @@ def _scan_string(filename: str, s: str, end: int) -> (  # noqa: C901, PLR0912
         if terminator != "\\":
             if terminator == "\n":
                 msg = "Unterminated string"
-                raise JSONSyntaxError(msg, filename, s, str_idx)
+                raise JSONSyntaxError(msg, filename, s, str_idx, end)
 
             msg = "Unescaped control character"
             raise JSONSyntaxError(msg, filename, s, end)
@@ -119,7 +129,9 @@ def _scan_string(filename: str, s: str, end: int) -> (  # noqa: C901, PLR0912
                     raise JSONSyntaxError(msg, filename, s, end) from None
 
                 msg = "Invalid backslash escape"
-                raise JSONSyntaxError(msg, filename, s, end) from None
+                raise JSONSyntaxError(
+                    msg, filename, s, end - 1, end + 1,
+                ) from None
 
             end += 1
         else:
@@ -153,12 +165,19 @@ except ImportError:
 class JSONSyntaxError(SyntaxError):
     """JSON syntax error."""
 
-    def __init__(self, msg: str, filename: str, doc: str, pos: int) -> None:
+    def __init__(    # pylint: disable=R0913
+        self, msg: str, filename: str, doc: str, start: int, end: int = -1,
+    ) -> None:
         """Create new JSON syntax error."""
-        lineno: int = doc.count("\n", 0, pos) + 1
-        self.colno: int = pos - doc.rfind("\n", 0, pos)
-        offset, text = _get_err_context(doc, pos)
-        super().__init__(msg, (filename, lineno, offset, text))
+        if end == -1:
+            end = start + 1
+
+        lineno: int = doc.count("\n", 0, start) + 1
+        self.colno: int = start - doc.rfind("\n", 0, start)
+        start_offset, text, end_offset = _get_err_context(doc, start, end)
+        super().__init__(
+            msg, (filename, lineno, start_offset, text, lineno, end_offset),
+        )
 
     def __str__(self) -> str:
         """Convert to string."""
@@ -188,28 +207,30 @@ except ImportError:
                 if match := _match_whitespace(s, end):
                     end = match.end()
 
+                comment_idx: int = end
                 if (comment_prefix := s[end:end + 2]) == "//":
-                    if not allow_comments:
-                        msg: str = "Comments are not allowed"
-                        raise JSONSyntaxError(msg, filename, s, end)
-
-                    if (end := find("\n", end + 2)) == -1:
-                        return len(s)
-
-                    end += 1
+                    if (end := find("\n", end + 2)) != -1:
+                        end += 1
+                    else:
+                        end = len(s)
                 elif comment_prefix == "/*":
-                    if not allow_comments:
-                        msg = "Comments are not allowed"
-                        raise JSONSyntaxError(msg, filename, s, end)
-
-                    comment_idx: int = end
                     if (end := find("*/", end + 2)) == -1:
-                        msg = "Unterminated comment"
-                        raise JSONSyntaxError(msg, filename, s, comment_idx)
+                        if allow_comments:
+                            msg = "Unterminated comment"
+                        else:
+                            msg = "Comments are not allowed"
+
+                        raise JSONSyntaxError(
+                            msg, filename, s, comment_idx, len(s),
+                        )
 
                     end += 2
                 else:
                     return end
+
+                if not allow_comments:
+                    msg = "Comments are not allowed"
+                    raise JSONSyntaxError(msg, filename, s, comment_idx, end)
 
         # pylint: disable-next=R0913, R0912
         def scan_object(  # noqa: C901, PLR0912
@@ -232,7 +253,7 @@ except ImportError:
                     key = memoize(key, key)
                 elif not allow_duplicate_keys:
                     msg = "Duplicate keys are not allowed"
-                    raise JSONSyntaxError(msg, filename, s, key_idx)
+                    raise JSONSyntaxError(msg, filename, s, key_idx, end)
                 else:
                     key = DuplicateKey(key)
 
@@ -329,25 +350,25 @@ except ImportError:
                     result = float(integer + (frac or "") + (exp or ""))
                     if isinf(result):
                         msg = "Number is too large"
-                        raise JSONSyntaxError(msg, filename, s, idx)
+                        raise JSONSyntaxError(msg, filename, s, idx, end)
                 else:
                     result = int(integer)
             elif nextchar == "N" and s[idx:idx + 3] == "NaN":
                 if not allow_nan:
                     msg: str = "NaN is not allowed"
-                    raise JSONSyntaxError(msg, filename, s, idx)
+                    raise JSONSyntaxError(msg, filename, s, idx, idx + 3)
 
                 result, end = nan, idx + 3
             elif nextchar == "I" and s[idx:idx + 8] == "Infinity":
                 if not allow_nan:
                     msg = "Infinity is not allowed"
-                    raise JSONSyntaxError(msg, filename, s, idx)
+                    raise JSONSyntaxError(msg, filename, s, idx, idx + 8)
 
                 result, end = inf, idx + 8
             elif nextchar == "-" and s[idx:idx + 9] == "-Infinity":
                 if not allow_nan:
                     msg = "-Infinity is not allowed"
-                    raise JSONSyntaxError(msg, filename, s, idx)
+                    raise JSONSyntaxError(msg, filename, s, idx, idx + 9)
 
                 result, end = -inf, idx + 9
             else:
@@ -366,7 +387,7 @@ except ImportError:
                 memo.clear()
 
             if (end := skip_comments(filename, s, end)) < len(s):
-                msg: str = "Unexpected value"
+                msg: str = "Expecting end of file"
                 raise JSONSyntaxError(msg, filename, s, end)
 
             return obj
