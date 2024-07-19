@@ -38,7 +38,6 @@ _match_whitespace: Callable[[str, int], Match[str] | None] = re.compile(
 ).match
 
 
-# TODO(Nice Zombies): refactor
 def _get_err_context(doc: str, start: int, end: int) -> (
     tuple[int, str, int]
 ):
@@ -46,7 +45,7 @@ def _get_err_context(doc: str, start: int, end: int) -> (
     if (line_end := doc.find("\n", start)) == -1:
         line_end = len(doc)
 
-    end = min(end, line_end + 1)
+    end = min(max(start + 1, line_end), end)
     max_chars: int = get_terminal_size().columns - 4  # leading spaces
     text_start: int = max(min(
         line_end - max_chars, end - max_chars // 2 - 1, start - max_chars // 3,
@@ -175,9 +174,10 @@ class JSONSyntaxError(SyntaxError):
 
         lineno: int = doc.count("\n", 0, start) + 1
         self.colno: int = start - doc.rfind("\n", 0, start)
-        start_offset, text, end_offset = _get_err_context(doc, start, end)
+        self.end_colno: int = self.colno + end - start
+        offset, text, end_offset = _get_err_context(doc, start, end)
         super().__init__(
-            msg, (filename, lineno, start_offset, text, lineno, end_offset),
+            msg, (filename, lineno, offset, text, lineno, end_offset),
         )
 
     def __str__(self) -> str:

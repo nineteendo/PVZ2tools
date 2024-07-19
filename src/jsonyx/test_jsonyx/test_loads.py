@@ -17,20 +17,18 @@ if TYPE_CHECKING:
     from types import ModuleType
 
 
-# pylint: disable-next=R0913
-def _check_syntax_err(  # noqa: PLR0913, PLR0917
+def _check_syntax_err(
     exc_info: pytest.ExceptionInfo[Any], msg: str, lineno: int, colno: int,
-    offset: int, end_offset: int = -1,
+    end_colno: int = -1,
 ) -> None:
     exc: Any = exc_info.value
     assert exc.msg == msg
     assert exc.lineno == lineno
     assert exc.colno == colno
-    assert exc.offset == offset
-    if end_offset == -1:
-        assert exc.end_offset == colno + 1
+    if end_colno == -1:
+        assert exc.end_colno == colno + 1
     else:
-        assert exc.end_offset == end_offset
+        assert exc.end_colno == end_colno
 
 
 def test_empty(json: ModuleType) -> None:
@@ -38,7 +36,7 @@ def test_empty(json: ModuleType) -> None:
     with pytest.raises(json.JSONSyntaxError) as exc_info:
         json.loads("")
 
-    _check_syntax_err(exc_info, "Expecting value", 1, 1, 1)
+    _check_syntax_err(exc_info, "Expecting value", 1, 1)
 
 
 @pytest.mark.parametrize(("string", "expected"), [
@@ -74,7 +72,7 @@ def test_nan_and_infinity_not_allowed(json: ModuleType, string: str) -> None:
         json.loads(string)
 
     _check_syntax_err(
-        exc_info, f"{string} is not allowed", 1, 1, 1, len(string) + 1,
+        exc_info, f"{string} is not allowed", 1, 1, len(string) + 1,
     )
 
 
@@ -154,9 +152,7 @@ def test_big_number(json: ModuleType, string: str) -> None:
     with pytest.raises(json.JSONSyntaxError) as exc_info:
         json.loads(string)
 
-    _check_syntax_err(
-        exc_info, "Number is too large", 1, 1, 1, len(string) + 1,
-    )
+    _check_syntax_err(exc_info, "Number is too large", 1, 1, len(string) + 1)
 
 
 @pytest.mark.parametrize(("string", "expected"), [
@@ -204,26 +200,26 @@ def test_string(json: ModuleType, string: str, expected: Any) -> None:
     assert json.loads(string) == expected
 
 
-@pytest.mark.parametrize(("string", "msg", "colno", "end_offset"), [
+@pytest.mark.parametrize(("string", "msg", "colno", "end_colno"), [
     ('"foo', "Unterminated string", 1, 5),
     ('"foo\n', "Unterminated string", 1, 5),
     ('"\b"', "Unescaped control character", 2, -1),
     ('"\\', "Expecting escaped character", 3, -1),
     ('"\\\n', "Expecting escaped character", 3, -1),
     (r'"\a"', "Invalid backslash escape", 2, 4),
-    (r'"\u', "Expecting 4 hex digits", 4, -1),
+    (r'"\u', "Expecting 4 hex digits", 4, 8),
     (r'"\uXXXX"', "Expecting 4 hex digits", 4, 8),
-    (r'"\ud800\u', "Expecting 4 hex digits", 10, -1),
+    (r'"\ud800\u', "Expecting 4 hex digits", 10, 14),
     (r'"\ud800\uXXXX"', "Expecting 4 hex digits", 10, 14),
 ])
 def test_invalid_string(
-    json: ModuleType, string: str, msg: str, colno: int, end_offset: int,
+    json: ModuleType, string: str, msg: str, colno: int, end_colno: int,
 ) -> None:
     """Test invalid JSON string."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
         json.loads(string)
 
-    _check_syntax_err(exc_info, msg, 1, colno, colno, end_offset)
+    _check_syntax_err(exc_info, msg, 1, colno, end_colno)
 
 
 @pytest.mark.parametrize(("string", "expected"), [
@@ -280,9 +276,7 @@ def test_trailing_comma_not_allowed(
     with pytest.raises(json.JSONSyntaxError) as exc_info:
         json.loads(string)
 
-    _check_syntax_err(
-        exc_info, "Trailing comma is not allowed", 1, colno, colno,
-    )
+    _check_syntax_err(exc_info, "Trailing comma is not allowed", 1, colno)
 
 
 @pytest.mark.parametrize("string", ["-", "foo"])
@@ -291,4 +285,4 @@ def test_invalid_value(json: ModuleType, string: str) -> None:
     with pytest.raises(json.JSONSyntaxError) as exc_info:
         json.loads(string)
 
-    _check_syntax_err(exc_info, "Expecting value", 1, 1, 1)
+    _check_syntax_err(exc_info, "Expecting value", 1, 1)
