@@ -22,7 +22,8 @@ typedef struct _PyScannerObject {
     PyObject_HEAD
     int allow_comments;
     int allow_duplicate_keys;
-    int allow_nan;
+    int allow_missing_commas;
+    int allow_nan_and_infinity;
     int allow_trailing_comma;
 } PyScannerObject;
 
@@ -32,7 +33,7 @@ typedef struct _PyEncoderObject {
     PyObject *key_separator;
     PyObject *item_separator;
     int sort_keys;
-    int allow_nan;
+    int allow_nan_and_infinity;
     int ensure_ascii;
 } PyEncoderObject;
 
@@ -118,7 +119,9 @@ _skip_comments(PyScannerObject *s, PyObject *pyfilename, PyObject *pystr, Py_ssi
                     if (s->allow_comments) {
                         raise_errmsg("Unterminated comment", pyfilename, pystr, comment_idx, idx);
                     }
-                    raise_errmsg("Comments are not allowed", pyfilename, pystr, comment_idx, idx);
+                    else {
+                        raise_errmsg("Comments are not allowed", pyfilename, pystr, comment_idx, idx);
+                    }
                     return -1;
                 }
                 if (PyUnicode_READ(kind,str, idx) == '*' &&
@@ -462,14 +465,14 @@ scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, Py_ssi
                 case 'n': c = '\n'; break;
                 case 'r': c = '\r'; break;
                 case 't': c = '\t'; break;
-                case '\n':
-                    raise_errmsg("Expecting escaped character", pyfilename, pystr, end - 1, -1);
+                default:
+                    if (c == '\n') {
+                        raise_errmsg("Expecting escaped character", pyfilename, pystr, end - 1, -1);
+                    }
+                    else {
+                        raise_errmsg("Invalid backslash escape", pyfilename, pystr, end - 2, end);
+                    }
                     goto bail;
-                default: c = 0;
-            }
-            if (c == 0) {
-                raise_errmsg("Invalid backslash escape", pyfilename, pystr, end - 2, end);
-                goto bail;
             }
         }
         else {
@@ -666,7 +669,7 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
             if (!PyDict_Contains(rval, key)) {
                 new_key = PyDict_SetDefault(memo, key, key);
             }
-            else  if (!s->allow_duplicate_keys) {
+            else if (!s->allow_duplicate_keys) {
                 raise_errmsg("Duplicate keys are not allowed", pyfilename, pystr, idx, next_idx);
                 goto bail;
             }
@@ -684,7 +687,7 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
                 goto bail;
             }
             if (idx > end_idx || PyUnicode_READ(kind, str, idx) != ':') {
-                raise_errmsg("Expecting ':' delimiter", pyfilename, pystr, colon_idx, -1);
+                raise_errmsg("Expecting colon", pyfilename, pystr, colon_idx, -1);
                 goto bail;
             }
             idx++;
@@ -709,26 +712,38 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
             }
 
             /* bail if the object is closed or we didn't get the , delimiter */
-            if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == '}')
+            if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == ',') {
+                comma_idx = idx;
+                idx++;
+
+                /* skip comments after , delimiter */
+                if (_skip_comments(s, pyfilename, pystr, &idx)) {
+                    goto bail;
+                }
+            }
+            else if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == '}') {
                 break;
-            if (idx > end_idx || PyUnicode_READ(kind, str, idx) != ',') {
-                raise_errmsg("Expecting ',' delimiter", pyfilename, pystr, comma_idx, -1);
+            }
+            else if (idx == comma_idx) {
+                if (!s->allow_missing_commas){
+                    raise_errmsg("Expecting comma or whitespace", pyfilename, pystr, comma_idx, -1);
+                }
+                else {
+                    raise_errmsg("Expecting comma", pyfilename, pystr, comma_idx, -1);
+                }
                 goto bail;
             }
-            comma_idx = idx;
-            idx++;
-
-            /* skip comments after , delimiter */
-            if (_skip_comments(s, pyfilename, pystr, &idx)) {
+            else if (!s->allow_missing_commas) {
+                raise_errmsg("Missing comma's are not allowed", pyfilename, pystr, comma_idx, -1);
                 goto bail;
             }
 
             if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == '}') {
-                if (s->allow_trailing_comma) {
-                    break;
+                if (!s->allow_trailing_comma) {
+                    raise_errmsg("Trailing comma is not allowed", pyfilename, pystr, comma_idx, -1);
+                    goto bail;
                 }
-                raise_errmsg("Trailing comma is not allowed", pyfilename, pystr, comma_idx, -1);
-                goto bail;
+                break;
             }
         }
     }
@@ -793,26 +808,38 @@ _parse_array_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, P
             }
 
             /* bail if the array is closed or we didn't get the , delimiter */
-            if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == ']')
+            if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == ',') {
+                comma_idx = idx;
+                idx++;
+
+                /* skip comments after , */
+                if (_skip_comments(s, pyfilename, pystr, &idx)) {
+                    goto bail;
+                }
+            }
+            else if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == ']') {
                 break;
-            if (idx > end_idx || PyUnicode_READ(kind, str, idx) != ',') {
-                raise_errmsg("Expecting ',' delimiter", pyfilename, pystr, comma_idx, -1);
+            }
+            else if (idx == comma_idx) {
+                if (!s->allow_missing_commas){
+                    raise_errmsg("Expecting comma or whitespace", pyfilename, pystr, comma_idx, -1);
+                }
+                else {
+                    raise_errmsg("Expecting comma", pyfilename, pystr, comma_idx, -1);
+                }
                 goto bail;
             }
-            comma_idx = idx;
-            idx++;
-
-            /* skip comments after , */
-            if (_skip_comments(s, pyfilename, pystr, &idx)) {
+            else if (!s->allow_missing_commas) {
+                raise_errmsg("Missing comma's are not allowed", pyfilename, pystr, comma_idx, -1);
                 goto bail;
             }
 
             if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == ']') {
-                if (s->allow_trailing_comma) {
-                    break;
+                if (!s->allow_trailing_comma) {
+                    raise_errmsg("Trailing comma is not allowed", pyfilename, pystr, comma_idx, -1);
+                    goto bail;
                 }
-                raise_errmsg("Trailing comma is not allowed", pyfilename, pystr, comma_idx, -1);
-                goto bail;
+                break;
             }
         }
     }
@@ -1006,7 +1033,7 @@ scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyOb
             /* NaN */
             if ((idx + 2 < length) && PyUnicode_READ(kind, str, idx + 1) == 'a' &&
                 PyUnicode_READ(kind, str, idx + 2) == 'N') {
-                if (!s->allow_nan) {
+                if (!s->allow_nan_and_infinity) {
                     raise_errmsg("NaN is not allowed", pyfilename, pystr, idx, idx + 3);
                     return NULL;
                 }
@@ -1023,7 +1050,7 @@ scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyOb
                 PyUnicode_READ(kind, str, idx + 5) == 'i' &&
                 PyUnicode_READ(kind, str, idx + 6) == 't' &&
                 PyUnicode_READ(kind, str, idx + 7) == 'y') {
-                if (!s->allow_nan) {
+                if (!s->allow_nan_and_infinity) {
                     raise_errmsg("Infinity is not allowed", pyfilename, pystr, idx, idx + 8);
                     return NULL;
                 }
@@ -1042,7 +1069,7 @@ scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyOb
                 PyUnicode_READ(kind, str, idx + 7) == 't' &&
                 PyUnicode_READ(kind, str, idx + 8) == 'y') {
                 *next_idx_ptr = idx + 9;
-                if (!s->allow_nan) {
+                if (!s->allow_nan_and_infinity) {
                     raise_errmsg("-Infinity is not allowed", pyfilename, pystr, idx, idx + 9);
                     return NULL;
                 }
@@ -1092,13 +1119,13 @@ scanner_call(PyScannerObject *self, PyObject *args, PyObject *kwds)
 static PyObject *
 scanner_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    static char *kwlist[] = {"allow_comments", "allow_duplicate_keys", "allow_nan", "allow_trailing_comma", NULL};
+    static char *kwlist[] = {"allow_comments", "allow_duplicate_keys", "allow_missing_commas", "allow_nan_and_infinity", "allow_trailing_comma", NULL};
 
     PyScannerObject *s;
-    int allow_comments, allow_duplicate_keys, allow_nan, allow_trailing_comma;
+    int allow_comments, allow_duplicate_keys, allow_missing_commas, allow_nan_and_infinity, allow_trailing_comma;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "pppp:make_scanner", kwlist,
-        &allow_comments, &allow_duplicate_keys, &allow_nan, &allow_trailing_comma))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ppppp:make_scanner", kwlist,
+        &allow_comments, &allow_duplicate_keys, &allow_missing_commas, &allow_nan_and_infinity, &allow_trailing_comma))
         return NULL;
 
     s = (PyScannerObject *)type->tp_alloc(type, 0);
@@ -1108,7 +1135,8 @@ scanner_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     s->allow_comments = allow_comments;
     s->allow_duplicate_keys = allow_duplicate_keys;
-    s->allow_nan = allow_nan;
+    s->allow_missing_commas = allow_missing_commas;
+    s->allow_nan_and_infinity = allow_nan_and_infinity;
     s->allow_trailing_comma = allow_trailing_comma;
     return (PyObject *)s;
 }
@@ -1136,17 +1164,17 @@ static PyType_Spec PyScannerType_spec = {
 static PyObject *
 encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    static char *kwlist[] = {"indent", "key_separator", "item_separator", "sort_keys", "allow_nan", "ensure_ascii", NULL};
+    static char *kwlist[] = {"indent", "key_separator", "item_separator", "sort_keys", "allow_nan_and_infinity", "ensure_ascii", NULL};
 
     PyEncoderObject *s;
     PyObject *indent, *key_separator;
     PyObject *item_separator;
-    int sort_keys, allow_nan, ensure_ascii;
+    int sort_keys, allow_nan_and_infinity, ensure_ascii;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "OUUppp:make_encoder", kwlist,
         &indent,
         &key_separator, &item_separator,
-        &sort_keys, &allow_nan, &ensure_ascii))
+        &sort_keys, &allow_nan_and_infinity, &ensure_ascii))
         return NULL;
 
     s = (PyEncoderObject *)type->tp_alloc(type, 0);
@@ -1157,7 +1185,7 @@ encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     s->key_separator = Py_NewRef(key_separator);
     s->item_separator = Py_NewRef(item_separator);
     s->sort_keys = sort_keys;
-    s->allow_nan = allow_nan;
+    s->allow_nan_and_infinity = allow_nan_and_infinity;
     s->ensure_ascii = ensure_ascii;
     return (PyObject *)s;
 }
@@ -1209,7 +1237,7 @@ encoder_encode_float(PyEncoderObject *s, PyObject *obj)
     /* Return the JSON representation of a PyFloat. */
     double i = PyFloat_AS_DOUBLE(obj);
     if (!isfinite(i)) {
-        if (!s->allow_nan) {
+        if (!s->allow_nan_and_infinity) {
             PyErr_Format(
                     PyExc_ValueError,
                     "%R is not allowed",

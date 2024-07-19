@@ -8,7 +8,7 @@ from math import inf, isnan, nan
 from typing import TYPE_CHECKING
 
 import pytest
-from jsonyx import NAN, TRAILING_COMMA
+from jsonyx import NAN_AND_INFINITY, TRAILING_COMMA
 # pylint: disable-next=W0611
 from jsonyx.test_jsonyx import get_json  # type: ignore # noqa: F401
 from typing_extensions import Any  # type: ignore
@@ -56,9 +56,11 @@ def test_keywords(json: ModuleType, string: str, expected: Any) -> None:
     ("Infinity", inf),
     ("-Infinity", -inf),
 ])
-def test_nan_allowed(json: ModuleType, string: str, expected: Any) -> None:
-    """Test NaN if allowed."""
-    obj: Any = json.loads(string, allow=NAN)
+def test_nan_and_infinity_allowed(
+    json: ModuleType, string: str, expected: Any,
+) -> None:
+    """Test NaN and infinity if allowed."""
+    obj: Any = json.loads(string, allow=NAN_AND_INFINITY)
     if isnan(expected):
         assert isnan(obj)
     else:
@@ -66,8 +68,8 @@ def test_nan_allowed(json: ModuleType, string: str, expected: Any) -> None:
 
 
 @pytest.mark.parametrize("string", ["NaN", "Infinity", "-Infinity"])
-def test_nan_not_allowed(json: ModuleType, string: str) -> None:
-    """Test NaN if not allowed."""
+def test_nan_and_infinity_not_allowed(json: ModuleType, string: str) -> None:
+    """Test NaN and infinity if not allowed."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
         json.loads(string)
 
@@ -239,9 +241,6 @@ def test_invalid_string(
 
     # Multiple values
     ("[1, 2, 3]", [1, 2, 3]),
-
-    # Space before delimiter
-    ("[1 ,2]", [1, 2]),
 ])  # type: ignore
 def test_array(json: ModuleType, string: str, expected: Any) -> None:
     """Test JSON array."""

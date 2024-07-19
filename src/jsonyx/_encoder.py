@@ -66,7 +66,7 @@ def make_writer(  # noqa: C901, PLR0915, PLR0917, PLR0913
     key_separator: str,
     item_separator: str,
     sort_keys: bool,  # noqa: FBT001
-    allow_nan: bool,  # noqa: FBT001
+    allow_nan_and_infinity: bool,  # noqa: FBT001
     ensure_ascii: bool,  # noqa: FBT001
 ) -> Callable[[Any, SupportsWrite[str]], None]:
     """Make JSON interencode."""
@@ -90,7 +90,7 @@ def make_writer(  # noqa: C901, PLR0915, PLR0917, PLR0913
         else:
             return float_repr(num)
 
-        if not allow_nan:
+        if not allow_nan_and_infinity:
             msg: str = f"{num!r} is not allowed"
             raise ValueError(msg)
 

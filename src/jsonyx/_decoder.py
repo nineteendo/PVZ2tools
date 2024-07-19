@@ -38,6 +38,7 @@ _match_whitespace: Callable[[str, int], Match[str] | None] = re.compile(
 ).match
 
 
+# TODO(Nice Zombies): refactor
 def _get_err_context(doc: str, start: int, end: int) -> (
     tuple[int, str, int]
 ):
@@ -194,7 +195,8 @@ except ImportError:
     def make_scanner(  # noqa: C901, PLR0915
         allow_comments: bool,  # noqa: FBT001
         allow_duplicate_keys: bool,  # noqa: FBT001
-        allow_nan: bool,  # noqa: FBT001
+        allow_missing_commas: bool,  # noqa: FBT001
+        allow_nan_and_infinity: bool,  # noqa: FBT001
         allow_trailing_comma: bool,  # noqa: FBT001
     ) -> Callable[[str, str], Any]:
         """Make JSON scanner."""
@@ -257,27 +259,32 @@ except ImportError:
                 else:
                     key = DuplicateKey(key)
 
+                colon_idx: int = end
+                end = skip_comments(filename, s, end)
                 if s[end:end + 1] != ":":
-                    colon_idx: int = end
-                    end = skip_comments(filename, s, end)
-                    if s[end:end + 1] != ":":
-                        msg = "Expecting ':' delimiter"
-                        raise JSONSyntaxError(msg, filename, s, colon_idx)
+                    msg = "Expecting colon"
+                    raise JSONSyntaxError(msg, filename, s, colon_idx)
 
                 end = skip_comments(filename, s, end + 1)
                 result[key], end = scan_value(filename, s, end)
-                if s[end:end + 1] != ",":
-                    comma_idx: int = end
-                    end = skip_comments(filename, s, end)
-                    if (nextchar := s[end:end + 1]) != ",":
-                        if nextchar != "}":
-                            msg = "Expecting ',' delimiter"
-                            raise JSONSyntaxError(msg, filename, s, comma_idx)
+                comma_idx: int = end
+                end = skip_comments(filename, s, end)
+                if (nextchar := s[end:end + 1]) == ",":
+                    comma_idx = end
+                    end = skip_comments(filename, s, end + 1)
+                elif nextchar == "}":
+                    return result, end + 1
+                elif end == comma_idx:
+                    if allow_missing_commas:
+                        msg = "Expecting comma or whitespace"
+                    else:
+                        msg = "Expecting comma"
 
-                        return result, end + 1
+                    raise JSONSyntaxError(msg, filename, s, comma_idx)
+                elif not allow_missing_commas:
+                    msg = "Missing comma's are not allowed"
+                    raise JSONSyntaxError(msg, filename, s, comma_idx)
 
-                comma_idx = end
-                end = skip_comments(filename, s, end + 1)
                 if (nextchar := s[end:end + 1]) != '"':
                     if nextchar != "}":
                         msg = "Expecting string"
@@ -301,24 +308,30 @@ except ImportError:
             while True:
                 value, end = scan_value(filename, s, end)
                 append_value(value)
-                if s[end:end + 1] != ",":
-                    comma_idx: int = end
-                    end = skip_comments(filename, s, end)
-                    if (nextchar := s[end:end + 1]) != ",":
-                        if nextchar == "]":
-                            return values, end + 1
+                comma_idx: int = end
+                end = skip_comments(filename, s, end)
+                if (nextchar := s[end:end + 1]) == ",":
+                    comma_idx = end
+                    end = skip_comments(filename, s, end + 1)
+                elif nextchar == "]":
+                    return values, end + 1
+                elif end == comma_idx:
+                    if allow_missing_commas:
+                        msg = "Expecting comma or whitespace"
+                    else:
+                        msg = "Expecting comma"
 
-                        msg: str = "Expecting ',' delimiter"
+                    raise JSONSyntaxError(msg, filename, s, comma_idx)
+                elif not allow_missing_commas:
+                    msg = "Missing comma's are not allowed"
+                    raise JSONSyntaxError(msg, filename, s, comma_idx)
+
+                if s[end:end + 1] == "]":
+                    if not allow_trailing_comma:
+                        msg = "Trailing comma is not allowed"
                         raise JSONSyntaxError(msg, filename, s, comma_idx)
 
-                comma_idx = end
-                end = skip_comments(filename, s, end + 1)
-                if s[end:end + 1] == "]":
-                    if allow_trailing_comma:
-                        return values, end + 1
-
-                    msg = "Trailing comma is not allowed"
-                    raise JSONSyntaxError(msg, filename, s, comma_idx)
+                    return values, end + 1
 
         # pylint: disable-next=R0912
         def scan_value(  # noqa: C901, PLR0912
@@ -354,19 +367,19 @@ except ImportError:
                 else:
                     result = int(integer)
             elif nextchar == "N" and s[idx:idx + 3] == "NaN":
-                if not allow_nan:
-                    msg: str = "NaN is not allowed"
+                if not allow_nan_and_infinity:
+                    msg = "NaN is not allowed"
                     raise JSONSyntaxError(msg, filename, s, idx, idx + 3)
 
                 result, end = nan, idx + 3
             elif nextchar == "I" and s[idx:idx + 8] == "Infinity":
-                if not allow_nan:
+                if not allow_nan_and_infinity:
                     msg = "Infinity is not allowed"
                     raise JSONSyntaxError(msg, filename, s, idx, idx + 8)
 
                 result, end = inf, idx + 8
             elif nextchar == "-" and s[idx:idx + 9] == "-Infinity":
-                if not allow_nan:
+                if not allow_nan_and_infinity:
                     msg = "-Infinity is not allowed"
                     raise JSONSyntaxError(msg, filename, s, idx, idx + 9)
 

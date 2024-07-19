@@ -30,7 +30,7 @@ def make_encoder(  # noqa: PLR0917, PLR0913
     key_separator: str,
     item_separator: str,
     sort_keys: bool,  # noqa: FBT001
-    allow_nan: bool,  # noqa: FBT001
+    allow_nan_and_infinity: bool,  # noqa: FBT001
     ensure_ascii: bool,  # noqa: FBT001
 ) -> Callable[[Any], str]:
     """Make JSON encoder."""
@@ -39,7 +39,8 @@ def make_encoder(  # noqa: PLR0917, PLR0913
 def make_scanner(
     allow_comments: bool,  # noqa: FBT001
     allow_duplicate_keys: bool,  # noqa: FBT001
-    allow_nan: bool,  # noqa: FBT001
+    allow_missing_commas: bool,  # noqa: FBT001
+    allow_nan_and_infinity: bool,  # noqa: FBT001
     allow_trailing_comma: bool,  # noqa: FBT001
 ) -> Callable[[str, str], Any]:
     """Make JSON scanner."""

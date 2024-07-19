@@ -6,7 +6,8 @@ __all__: list[str] = [
     "COMMENTS",
     "DUPLICATE_KEYS",
     "EVERYTHING",
-    "NAN",
+    "MISSING_COMMAS",
+    "NAN_AND_INFINITY",
     "NOTHING",
     "TRAILING_COMMA",
     "DuplicateKey",
@@ -36,6 +37,11 @@ if TYPE_CHECKING:
 
     from _typeshed import SupportsRead, SupportsWrite
 
+    _AllowList = Container[Literal[
+        "comments", "duplicate_keys", "missing_commas", "nan_and_infinity",
+        "trailing_comma",
+    ] | str]
+
 try:
     # pylint: disable-next=C0412
     from jsonyx._accelerator import make_encoder
@@ -45,9 +51,13 @@ except ImportError:
 NOTHING: frozenset[str] = frozenset()
 COMMENTS: frozenset[str] = frozenset({"comments"})
 DUPLICATE_KEYS: frozenset[str] = frozenset({"duplicate_keys"})
-NAN: frozenset[str] = frozenset({"nan"})
+MISSING_COMMAS: frozenset[str] = frozenset({"missing_commas"})
+NAN_AND_INFINITY: frozenset[str] = frozenset({"nan_and_infinity"})
 TRAILING_COMMA: frozenset[str] = frozenset({"trailing_comma"})
-EVERYTHING: frozenset[str] = COMMENTS | DUPLICATE_KEYS | NAN | TRAILING_COMMA
+EVERYTHING: frozenset[str] = (
+    COMMENTS | DUPLICATE_KEYS | MISSING_COMMAS | NAN_AND_INFINITY
+    | TRAILING_COMMA
+)
 
 
 def _decode_bytes(b: bytearray | bytes) -> str:
@@ -83,24 +93,16 @@ def _decode_bytes(b: bytearray | bytes) -> str:
 class JSONDecoder:
     """JSON decoder."""
 
-    def __init__(
-        self,
-        *,
-        allow: Container[Literal[
-            "comments", "duplicate_keys", "nan", "trailing_comma",
-        ] | str] = NOTHING,
-    ) -> None:
+    def __init__(self, *, allow: _AllowList = NOTHING) -> None:
         """Create new JSON decoder."""
         self._scanner: Callable[[str, str], tuple[Any]] = make_scanner(
-            "comments" in allow, "duplicate_keys" in allow, "nan" in allow,
+            "comments" in allow, "duplicate_keys" in allow,
+            "missing_commas" in allow, "nan_and_infinity" in allow,
             "trailing_comma" in allow,
         )
 
     def load(
-        self,
-        fp: SupportsRead[bytearray | bytes | str],
-        *,
-        filename: str = "<string>",
+        self, fp: SupportsRead[bytes | str], *, filename: str = "<string>",
     ) -> Any:
         """Deserialize a JSON file to a Python object."""
         return self.loads(fp.read(), filename=getattr(fp, "name", filename))
@@ -128,7 +130,7 @@ class JSONEncoder:
     def __init__(  # noqa: PLR0913
         self,
         *,
-        allow: Container[Literal["nan"] | str] = NOTHING,
+        allow: _AllowList = NOTHING,
         ensure_ascii: bool = False,
         indent: int | str | None = None,
         item_separator: str = ", ",
@@ -146,12 +148,12 @@ class JSONEncoder:
         else:
             self._encoder = make_encoder(
                 indent, key_separator, item_separator, sort_keys,
-                "nan" in allow, ensure_ascii,
+                "nan_and_infinity" in allow, ensure_ascii,
             )
 
         self._writer: Callable[[Any, SupportsWrite[str]], None] = make_writer(
-            indent, key_separator, item_separator, sort_keys, "nan" in allow,
-            ensure_ascii,
+            indent, key_separator, item_separator, sort_keys,
+            "nan_and_infinity" in allow, ensure_ascii,
         )
 
     def dump(self, obj: Any, fp: SupportsWrite[str]) -> None:
@@ -188,7 +190,7 @@ def dump(  # noqa: PLR0913
     obj: Any,
     fp: SupportsWrite[str],
     *,
-    allow: Container[Literal["nan"] | str] = NOTHING,
+    allow: _AllowList = NOTHING,
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
@@ -208,7 +210,7 @@ def dump(  # noqa: PLR0913
 def dumps(  # noqa: PLR0913
     obj: Any,
     *,
-    allow: Container[Literal["nan"] | str] = NOTHING,
+    allow: _AllowList = NOTHING,
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
@@ -227,11 +229,9 @@ def dumps(  # noqa: PLR0913
 
 
 def load(
-    fp: SupportsRead[bytearray | bytes | str],
+    fp: SupportsRead[bytes | str],
     *,
-    allow: Container[
-        Literal["comments", "duplicate_keys", "nan", "trailing_comma"] | str
-    ] = NOTHING,
+    allow: _AllowList = NOTHING,
     filename: str = "<string>",
 ) -> Any:
     """Deserialize a JSON file to a Python object."""
@@ -241,9 +241,7 @@ def load(
 def loads(
     s: bytearray | bytes | str,
     *,
-    allow: Container[
-        Literal["comments", "duplicate_keys", "nan", "trailing_comma"] | str
-    ] = NOTHING,
+    allow: _AllowList = NOTHING,
     filename: str = "<string>",
 ) -> Any:
     """Deserialize a JSON string to a Python object."""
