@@ -259,21 +259,6 @@ def test_array(json: ModuleType, string: str, expected: Any) -> None:
     assert json.loads(string) == expected
 
 
-@pytest.mark.parametrize(("string", "msg", "colno"), [
-    ("[1-2-3]", "Expecting comma", 3),
-    ("[1 2 3]", "Missing comma's are not allowed", 3),
-    ("[0,]", "Trailing comma is not allowed", 3),
-])
-def test_invalid_array(
-    json: ModuleType, string: str, msg: str, colno: int,
-) -> None:
-    """Test invalid JSON array."""
-    with pytest.raises(json.JSONSyntaxError) as exc_info:
-        json.loads(string)
-
-    _check_syntax_err(exc_info, msg, colno)
-
-
 @pytest.mark.parametrize(("string", "expected"), [
     # In empty array
     ("[/**/]", []),
@@ -293,6 +278,21 @@ def test_invalid_array(
 def test_array_comments(json: ModuleType, string: str, expected: Any) -> None:
     """Test comments in JSON array."""
     assert json.loads(string, allow=COMMENTS) == expected
+
+
+@pytest.mark.parametrize(("string", "msg", "colno"), [
+    ("[1-2-3]", "Expecting comma", 3),
+    ("[1 2 3]", "Missing comma's are not allowed", 3),
+    ("[0,]", "Trailing comma is not allowed", 3),
+])
+def test_invalid_array(
+    json: ModuleType, string: str, msg: str, colno: int,
+) -> None:
+    """Test invalid JSON array."""
+    with pytest.raises(json.JSONSyntaxError) as exc_info:
+        json.loads(string)
+
+    _check_syntax_err(exc_info, msg, colno)
 
 
 @pytest.mark.parametrize(("string", "expected"), [
@@ -315,6 +315,33 @@ def test_array_comments(json: ModuleType, string: str, expected: Any) -> None:
 def test_object(json: ModuleType, string: str, expected: Any) -> None:
     """Test JSON object."""
     assert json.loads(string) == expected
+
+
+@pytest.mark.parametrize(("string", "expected"), [
+    # In empty object
+    ("{/**/}", {}),
+
+    # Before first element
+    ('{"k1": 0, "k2": 0, "k3": 0}', {"k1": 0, "k2": 0, "k3": 0}),
+
+    # Before colon
+    ('{"k1"/**/: 0, "k2"/**/: 0, "k3"/**/: 0}', {"k1": 0, "k2": 0, "k3": 0}),
+
+    # After colon
+    ('{"k1":/**/0, "k2":/**/0, "k3":/**/0}', {"k1": 0, "k2": 0, "k3": 0}),
+
+    # Before comma
+    ('{"k1": 0/**/, "k2": 0/**/, "k3": 0}', {"k1": 0, "k2": 0, "k3": 0}),
+
+    # After comma
+    ('{"k1": 0,/**/"k2": 0,/**/"k3": 0}', {"k1": 0, "k2": 0, "k3": 0}),
+
+    # After last element
+    ('{"k1": 0, "k2": 0, "k3": 0/**/}', {"k1": 0, "k2": 0, "k3": 0}),
+])
+def test_object_comments(json: ModuleType, string: str, expected: Any) -> None:
+    """Test comments in JSON object."""
+    assert json.loads(string, allow=COMMENTS) == expected
 
 
 @pytest.mark.parametrize(("string", "msg", "colno", "end_colno"), [
@@ -345,31 +372,11 @@ def test_duplicate_keys(json: ModuleType) -> None:
     assert list(obj.values()) == [1, 2, 3]
 
 
-@pytest.mark.parametrize(("string", "expected"), [
-    # In empty object
-    ("{/**/}", {}),
-
-    # Before first element
-    ('{"k1": 0, "k2": 0, "k3": 0}', {"k1": 0, "k2": 0, "k3": 0}),
-
-    # Before colon
-    ('{"k1"/**/: 0, "k2"/**/: 0, "k3"/**/: 0}', {"k1": 0, "k2": 0, "k3": 0}),
-
-    # After colon
-    ('{"k1":/**/0, "k2":/**/0, "k3":/**/0}', {"k1": 0, "k2": 0, "k3": 0}),
-
-    # Before comma
-    ('{"k1": 0/**/, "k2": 0/**/, "k3": 0}', {"k1": 0, "k2": 0, "k3": 0}),
-
-    # After comma
-    ('{"k1": 0,/**/"k2": 0,/**/"k3": 0}', {"k1": 0, "k2": 0, "k3": 0}),
-
-    # After last element
-    ('{"k1": 0, "k2": 0, "k3": 0/**/}', {"k1": 0, "k2": 0, "k3": 0}),
-])
-def test_object_comments(json: ModuleType, string: str, expected: Any) -> None:
-    """Test comments in JSON object."""
-    assert json.loads(string, allow=COMMENTS) == expected
+def test_reuse_keys(json: ModuleType) -> None:
+    """Test if keys are re-used."""
+    obj: list[dict[str, int]] = json.loads('[{"k": 0}, {"k": 0}, {"k": 0}]')
+    ids: set[int] = {id(next(iter(value.keys()))) for value in obj}
+    assert len(ids) == 1
 
 
 @pytest.mark.parametrize(("string", "expected"), [
@@ -390,15 +397,6 @@ def test_trailing_comma(json: ModuleType, string: str, expected: Any) -> None:
     assert json.loads(string, allow=TRAILING_COMMA) == expected
 
 
-@pytest.mark.parametrize("string", ["-", "foo"])
-def test_invalid_value(json: ModuleType, string: str) -> None:
-    """Test invalid JSON value."""
-    with pytest.raises(json.JSONSyntaxError) as exc_info:
-        json.loads(string)
-
-    _check_syntax_err(exc_info, "Expecting value", 1)
-
-
 @pytest.mark.parametrize("string", [
     # Before value
     "/**/0",
@@ -409,6 +407,15 @@ def test_invalid_value(json: ModuleType, string: str) -> None:
 def test_value_comments(json: ModuleType, string: str) -> None:
     """Test comments around JSON value."""
     assert json.loads(string, allow=COMMENTS) == 0
+
+
+@pytest.mark.parametrize("string", ["-", "foo"])
+def test_invalid_value(json: ModuleType, string: str) -> None:
+    """Test invalid JSON value."""
+    with pytest.raises(json.JSONSyntaxError) as exc_info:
+        json.loads(string)
+
+    _check_syntax_err(exc_info, "Expecting value", 1)
 
 
 @pytest.mark.parametrize("string", [
