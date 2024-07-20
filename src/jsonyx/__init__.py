@@ -24,6 +24,7 @@ __all__: list[str] = [
 from codecs import (
     BOM_UTF8, BOM_UTF16_BE, BOM_UTF16_LE, BOM_UTF32_BE, BOM_UTF32_LE,
 )
+from decimal import Decimal
 from io import StringIO
 from os.path import realpath
 from typing import TYPE_CHECKING
@@ -44,7 +45,7 @@ if TYPE_CHECKING:
 
 try:
     # pylint: disable-next=C0412
-    from jsonyx._accelerator import make_encoder
+    from jsonyx._speedups import make_encoder
 except ImportError:
     make_encoder = None
 
@@ -93,12 +94,14 @@ def _decode_bytes(b: bytearray | bytes) -> str:
 class JSONDecoder:
     """JSON decoder."""
 
-    def __init__(self, *, allow: _AllowList = NOTHING) -> None:
+    def __init__(
+        self, *, allow: _AllowList = NOTHING, use_decimal: bool = False,
+    ) -> None:
         """Create new JSON decoder."""
         self._scanner: Callable[[str, str], tuple[Any]] = make_scanner(
             "comments" in allow, "duplicate_keys" in allow,
             "missing_commas" in allow, "nan_and_infinity" in allow,
-            "trailing_comma" in allow,
+            "trailing_comma" in allow, use_decimal,
         )
 
     def load(
@@ -138,6 +141,24 @@ class JSONEncoder:
         sort_keys: bool = False,
     ) -> None:
         """Create new JSON encoder."""
+        allow_nan_and_infinity: bool = "nan_and_infinity" in allow
+        decimal_str: Callable[[Decimal], str] = Decimal.__str__
+
+        def encode_decimal(decimal: Decimal) -> str:
+            if not decimal.is_finite():
+                if decimal.is_snan():
+                    msg: str = f"{decimal!r} is not JSON serializable"
+                    raise ValueError(msg)
+
+                if not allow_nan_and_infinity:
+                    msg = f"{decimal!r} is not allowed"
+                    raise ValueError(msg)
+
+                if decimal.is_qnan():
+                    return "NaN"
+
+            return decimal_str(decimal)
+
         if indent is not None:
             item_separator = item_separator.rstrip()
             if isinstance(indent, int):
@@ -147,13 +168,13 @@ class JSONEncoder:
             self._encoder: Callable[[Any], str] | None = None
         else:
             self._encoder = make_encoder(
-                indent, key_separator, item_separator, sort_keys,
-                "nan_and_infinity" in allow, ensure_ascii,
+                encode_decimal, indent, key_separator, item_separator,
+                sort_keys, allow_nan_and_infinity, ensure_ascii,
             )
 
         self._writer: Callable[[Any, SupportsWrite[str]], None] = make_writer(
-            indent, key_separator, item_separator, sort_keys,
-            "nan_and_infinity" in allow, ensure_ascii,
+            encode_decimal, indent, key_separator, item_separator, sort_keys,
+            allow_nan_and_infinity, ensure_ascii,
         )
 
     def dump(self, obj: Any, fp: SupportsWrite[str]) -> None:
@@ -233,9 +254,12 @@ def load(
     *,
     allow: _AllowList = NOTHING,
     filename: str = "<string>",
+    use_decimal: bool = False,
 ) -> Any:
     """Deserialize a JSON file to a Python object."""
-    return JSONDecoder(allow=allow).load(fp, filename=filename)
+    return JSONDecoder(allow=allow, use_decimal=use_decimal).load(
+        fp, filename=filename,
+    )
 
 
 def loads(
@@ -243,6 +267,9 @@ def loads(
     *,
     allow: _AllowList = NOTHING,
     filename: str = "<string>",
+    use_decimal: bool = False,
 ) -> Any:
     """Deserialize a JSON string to a Python object."""
-    return JSONDecoder(allow=allow).loads(s, filename=filename)
+    return JSONDecoder(allow=allow, use_decimal=use_decimal).loads(
+        s, filename=filename,
+    )

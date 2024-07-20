@@ -2,6 +2,7 @@
 # TODO(Nice Zombies): test jsonyx.dumps
 # TODO(Nice Zombies): test jsonyx.format_syntax_error
 # TODO(Nice Zombies): test jsonyx.DuplicateKey
+# TODO(Nice Zombies): test jsonyx.JSONSyntaxError
 """JSON tests."""
 from __future__ import annotations
 
@@ -17,10 +18,10 @@ if TYPE_CHECKING:
     from types import ModuleType
 
 cjson: ModuleType | None = import_fresh_module(
-    "jsonyx", fresh=["jsonyx._accelerator"],
+    "jsonyx", fresh=["jsonyx._speedups"],
 )
 pyjson: ModuleType | None = import_fresh_module(
-    "jsonyx", blocked=["jsonyx._accelerator"],
+    "jsonyx", blocked=["jsonyx._speedups"],
 )
 if cjson:
     # JSONSyntaxError is cached inside the _jsonyx module
@@ -32,6 +33,6 @@ def get_json(request: pytest.FixtureRequest) -> ModuleType:
     """Get JSON module."""
     result: ModuleType | None = request.param
     if result is None:
-        pytest.skip("requires jsonyx._accelerator")
+        pytest.skip("requires jsonyx._speedups")
 
     return result

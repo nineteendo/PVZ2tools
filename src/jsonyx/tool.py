@@ -25,6 +25,7 @@ class JSONNamespace:  # pylint: disable=R0903
     filename: str | None
     nonstrict: bool
     sort_keys: bool
+    use_decimal: bool
 
 
 def register(parser: ArgumentParser) -> None:
@@ -39,6 +40,7 @@ def register(parser: ArgumentParser) -> None:
     )
     parser.add_argument("--nonstrict", action="store_true")
     parser.add_argument("--sort-keys", action="store_true")
+    parser.add_argument("--use-decimal", action="store_true")
 
 
 def run(args: JSONNamespace) -> None:
@@ -57,6 +59,7 @@ def run(args: JSONNamespace) -> None:
             s,
             allow=EVERYTHING if args.nonstrict else NOTHING,
             filename=filename,
+            use_decimal=args.use_decimal,
         )
     except JSONSyntaxError as exc:
         raise SystemExit(format_syntax_error(exc)) from None

@@ -5,6 +5,7 @@ from __future__ import annotations
 __all__: list[str] = ["DuplicateKey", "JSONSyntaxError", "make_scanner"]
 
 import re
+from decimal import Decimal
 from math import inf, isinf, nan
 from re import DOTALL, MULTILINE, VERBOSE, Match, RegexFlag
 from shutil import get_terminal_size
@@ -150,7 +151,7 @@ def _scan_string(filename: str, s: str, end: int) -> (  # noqa: C901, PLR0912
 
 
 try:
-    from jsonyx._accelerator import DuplicateKey  # type: ignore
+    from jsonyx._speedups import DuplicateKey  # type: ignore
 except ImportError:
     class DuplicateKey(str):
         """Duplicate key."""
@@ -189,19 +190,21 @@ class JSONSyntaxError(SyntaxError):
 
 
 try:
-    from jsonyx._accelerator import make_scanner
+    from jsonyx._speedups import make_scanner
 except ImportError:
-    # pylint: disable-next=R0915
-    def make_scanner(  # noqa: C901, PLR0915
+    # pylint: disable-next=R0915, R0913
+    def make_scanner(  # noqa: C901, PLR0915, PLR0917, PLR0913
         allow_comments: bool,  # noqa: FBT001
         allow_duplicate_keys: bool,  # noqa: FBT001
         allow_missing_commas: bool,  # noqa: FBT001
         allow_nan_and_infinity: bool,  # noqa: FBT001
         allow_trailing_comma: bool,  # noqa: FBT001
+        use_decimal: bool,  # noqa: FBT001
     ) -> Callable[[str, str], Any]:
         """Make JSON scanner."""
         memo: dict[str, str] = {}
         memoize: Callable[[str, str], str] = memo.setdefault
+        parse_float: Callable[[str], Any] = Decimal if use_decimal else float
 
         def skip_comments(filename: str, s: str, end: int) -> int:
             find: Callable[[str, int], int] = s.find
@@ -275,11 +278,7 @@ except ImportError:
                 elif nextchar == "}":
                     return result, end + 1
                 elif end == comma_idx:
-                    if allow_missing_commas:
-                        msg = "Expecting comma or whitespace"
-                    else:
-                        msg = "Expecting comma"
-
+                    msg = "Expecting comma"
                     raise JSONSyntaxError(msg, filename, s, comma_idx)
                 elif not allow_missing_commas:
                     msg = "Missing comma's are not allowed"
@@ -316,11 +315,7 @@ except ImportError:
                 elif nextchar == "]":
                     return values, end + 1
                 elif end == comma_idx:
-                    if allow_missing_commas:
-                        msg = "Expecting comma or whitespace"
-                    else:
-                        msg = "Expecting comma"
-
+                    msg = "Expecting comma"
                     raise JSONSyntaxError(msg, filename, s, comma_idx)
                 elif not allow_missing_commas:
                     msg = "Missing comma's are not allowed"
@@ -360,9 +355,9 @@ except ImportError:
                 integer, frac, exp = number.groups()
                 end = number.end()
                 if frac or exp:
-                    result = float(integer + (frac or "") + (exp or ""))
-                    if isinf(result):
-                        msg = "Number is too large"
+                    result = parse_float(integer + (frac or "") + (exp or ""))
+                    if not use_decimal and isinf(result):
+                        msg = "Big numbers require decimal"
                         raise JSONSyntaxError(msg, filename, s, idx, end)
                 else:
                     result = int(integer)

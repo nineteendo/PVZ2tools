@@ -9,6 +9,7 @@ __all__: list[str] = [
 ]
 
 from collections.abc import Callable
+from decimal import Decimal
 
 from typing_extensions import Any  # type: ignore
 
@@ -26,6 +27,7 @@ def encode_basestring_ascii(s: str) -> str:
 
 
 def make_encoder(  # noqa: PLR0917, PLR0913
+    encode_decimal: Callable[[Decimal], str],
     indent: str | None,
     key_separator: str,
     item_separator: str,
@@ -36,11 +38,12 @@ def make_encoder(  # noqa: PLR0917, PLR0913
     """Make JSON encoder."""
 
 
-def make_scanner(
+def make_scanner(  # noqa: PLR0913, PLR0917
     allow_comments: bool,  # noqa: FBT001
     allow_duplicate_keys: bool,  # noqa: FBT001
     allow_missing_commas: bool,  # noqa: FBT001
     allow_nan_and_infinity: bool,  # noqa: FBT001
     allow_trailing_comma: bool,  # noqa: FBT001
+    use_decimal: bool,  # noqa: FBT001
 ) -> Callable[[str, str], Any]:
     """Make JSON scanner."""

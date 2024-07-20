@@ -20,15 +20,19 @@
 
 typedef struct _PyScannerObject {
     PyObject_HEAD
+    PyObject *Decimal;
     int allow_comments;
     int allow_duplicate_keys;
     int allow_missing_commas;
     int allow_nan_and_infinity;
     int allow_trailing_comma;
+    int use_decimal;
 } PyScannerObject;
 
 typedef struct _PyEncoderObject {
     PyObject_HEAD
+    PyObject *Decimal;
+    PyObject *encode_decimal;
     PyObject *indent;
     PyObject *key_separator;
     PyObject *item_separator;
@@ -117,10 +121,10 @@ _skip_comments(PyScannerObject *s, PyObject *pyfilename, PyObject *pystr, Py_ssi
             while (1) {
                 if (idx + 1 >= len) {
                     if (s->allow_comments) {
-                        raise_errmsg("Unterminated comment", pyfilename, pystr, comment_idx, idx);
+                        raise_errmsg("Unterminated comment", pyfilename, pystr, comment_idx, len);
                     }
                     else {
-                        raise_errmsg("Comments are not allowed", pyfilename, pystr, comment_idx, idx);
+                        raise_errmsg("Comments are not allowed", pyfilename, pystr, comment_idx, len);
                     }
                     return -1;
                 }
@@ -355,6 +359,7 @@ raise_errmsg(const char *msg, PyObject *filename, PyObject *s, Py_ssize_t start,
         return;
     }
     PyObject *JSONSyntaxError = PyObject_GetAttrString(json, "JSONSyntaxError");
+    Py_DECREF(json);
     if (JSONSyntaxError == NULL) {
         return;
     }
@@ -725,12 +730,7 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
                 break;
             }
             else if (idx == comma_idx) {
-                if (!s->allow_missing_commas){
-                    raise_errmsg("Expecting comma or whitespace", pyfilename, pystr, comma_idx, -1);
-                }
-                else {
-                    raise_errmsg("Expecting comma", pyfilename, pystr, comma_idx, -1);
-                }
+                raise_errmsg("Expecting comma", pyfilename, pystr, comma_idx, -1);
                 goto bail;
             }
             else if (!s->allow_missing_commas) {
@@ -821,12 +821,7 @@ _parse_array_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, P
                 break;
             }
             else if (idx == comma_idx) {
-                if (!s->allow_missing_commas){
-                    raise_errmsg("Expecting comma or whitespace", pyfilename, pystr, comma_idx, -1);
-                }
-                else {
-                    raise_errmsg("Expecting comma", pyfilename, pystr, comma_idx, -1);
-                }
+                raise_errmsg("Expecting comma", pyfilename, pystr, comma_idx, -1);
                 goto bail;
             }
             else if (!s->allow_missing_commas) {
@@ -929,29 +924,40 @@ _match_number_unicode(PyScannerObject *s, PyObject *pyfilename, PyObject *pystr,
         }
     }
 
-    Py_ssize_t i, n;
-    char *buf;
-    /* Straight conversion to ASCII, to avoid costly conversion of
-        decimal unicode digits (which cannot appear here) */
-    n = idx - start;
-    numstr = PyBytes_FromStringAndSize(NULL, n);
-    if (numstr == NULL)
-        return NULL;
-    buf = PyBytes_AS_STRING(numstr);
-    for (i = 0; i < n; i++) {
-        buf[i] = (char) PyUnicode_READ(kind, str, i + start);
-    }
-    if (is_float) {
-        rval = PyFloat_FromString(numstr);
-        if (!isfinite(PyFloat_AS_DOUBLE(rval))) {
-            Py_DECREF(numstr);
-            Py_DECREF(rval);
-            raise_errmsg("Number is too large", pyfilename, pystr, start, idx);
+    if (is_float && s->use_decimal) {
+        /* copy the section we determined to be a number */
+        numstr = PyUnicode_FromKindAndData(kind,
+                                           (char*)str + kind * start,
+                                           idx - start);
+        if (numstr == NULL)
             return NULL;
-        }
+        rval = PyObject_CallOneArg(s->Decimal, numstr);
     }
-    else
-        rval = PyLong_FromString(buf, NULL, 10);
+    else {
+        Py_ssize_t i, n;
+        char *buf;
+        /* Straight conversion to ASCII, to avoid costly conversion of
+            decimal unicode digits (which cannot appear here) */
+        n = idx - start;
+        numstr = PyBytes_FromStringAndSize(NULL, n);
+        if (numstr == NULL)
+            return NULL;
+        buf = PyBytes_AS_STRING(numstr);
+        for (i = 0; i < n; i++) {
+            buf[i] = (char) PyUnicode_READ(kind, str, i + start);
+        }
+        if (is_float) {
+            rval = PyFloat_FromString(numstr);
+            if (!isfinite(PyFloat_AS_DOUBLE(rval))) {
+                Py_DECREF(numstr);
+                Py_DECREF(rval);
+                raise_errmsg("Big numbers require decimal", pyfilename, pystr, start, idx);
+                return NULL;
+            }
+        }
+        else
+            rval = PyLong_FromString(buf, NULL, 10);
+    }
     Py_DECREF(numstr);
     *next_idx_ptr = idx;
     return rval;
@@ -1119,13 +1125,17 @@ scanner_call(PyScannerObject *self, PyObject *args, PyObject *kwds)
 static PyObject *
 scanner_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    static char *kwlist[] = {"allow_comments", "allow_duplicate_keys", "allow_missing_commas", "allow_nan_and_infinity", "allow_trailing_comma", NULL};
+    static char *kwlist[] = {"allow_comments", "allow_duplicate_keys",
+                             "allow_missing_commas", "allow_nan_and_infinity",
+                             "allow_trailing_comma", "use_decimal", NULL};
 
     PyScannerObject *s;
-    int allow_comments, allow_duplicate_keys, allow_missing_commas, allow_nan_and_infinity, allow_trailing_comma;
+    int allow_comments, allow_duplicate_keys, allow_missing_commas;
+    int allow_nan_and_infinity, allow_trailing_comma, use_decimal;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ppppp:make_scanner", kwlist,
-        &allow_comments, &allow_duplicate_keys, &allow_missing_commas, &allow_nan_and_infinity, &allow_trailing_comma))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "pppppp:make_scanner", kwlist,
+        &allow_comments, &allow_duplicate_keys, &allow_missing_commas,
+        &allow_nan_and_infinity, &allow_trailing_comma, &use_decimal))
         return NULL;
 
     s = (PyScannerObject *)type->tp_alloc(type, 0);
@@ -1133,12 +1143,26 @@ scanner_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
         return NULL;
     }
 
+    PyObject *decimal = PyImport_ImportModule((char *) "decimal");
+    if (decimal == NULL) {
+        goto bail;
+    }
+    s->Decimal = PyObject_GetAttrString(decimal, (char *) "Decimal");
+    Py_DECREF(decimal);
+    if (s->Decimal == NULL) {
+        goto bail;
+    }
     s->allow_comments = allow_comments;
     s->allow_duplicate_keys = allow_duplicate_keys;
     s->allow_missing_commas = allow_missing_commas;
     s->allow_nan_and_infinity = allow_nan_and_infinity;
     s->allow_trailing_comma = allow_trailing_comma;
+    s->use_decimal = use_decimal;
     return (PyObject *)s;
+
+bail:
+    Py_DECREF(s);
+    return NULL;
 }
 
 PyDoc_STRVAR(scanner_doc, "Make JSON scanner");
@@ -1164,15 +1188,17 @@ static PyType_Spec PyScannerType_spec = {
 static PyObject *
 encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    static char *kwlist[] = {"indent", "key_separator", "item_separator", "sort_keys", "allow_nan_and_infinity", "ensure_ascii", NULL};
+    static char *kwlist[] = {"encode_decimal", "indent", "key_separator",
+                             "item_separator", "sort_keys",
+                             "allow_nan_and_infinity", "ensure_ascii", NULL};
 
     PyEncoderObject *s;
-    PyObject *indent, *key_separator;
+    PyObject *encode_decimal, *indent, *key_separator;
     PyObject *item_separator;
     int sort_keys, allow_nan_and_infinity, ensure_ascii;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OUUppp:make_encoder", kwlist,
-        &indent,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOUUppp:make_encoder", kwlist,
+        &encode_decimal, &indent,
         &key_separator, &item_separator,
         &sort_keys, &allow_nan_and_infinity, &ensure_ascii))
         return NULL;
@@ -1181,6 +1207,16 @@ encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     if (s == NULL)
         return NULL;
 
+    PyObject *decimal = PyImport_ImportModule((char *) "decimal");
+    if (decimal == NULL) {
+        goto bail;
+    }
+    s->Decimal = PyObject_GetAttrString(decimal, (char *) "Decimal");
+    Py_DECREF(decimal);
+    if (s->Decimal == NULL) {
+        goto bail;
+    }
+    s->encode_decimal = Py_NewRef(encode_decimal);
     s->indent = Py_NewRef(indent);
     s->key_separator = Py_NewRef(key_separator);
     s->item_separator = Py_NewRef(item_separator);
@@ -1188,6 +1224,10 @@ encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     s->allow_nan_and_infinity = allow_nan_and_infinity;
     s->ensure_ascii = ensure_ascii;
     return (PyObject *)s;
+
+bail:
+    Py_DECREF(s);
+    return NULL;
 }
 
 static PyObject *
@@ -1220,8 +1260,8 @@ encoder_call(PyEncoderObject *self, PyObject *args, PyObject *kwds)
         goto bail;
     }
 
+    Py_DECREF(markers);
     Py_XDECREF(newline_indent);
-    Py_XDECREF(markers);
     return _PyUnicodeWriter_Finish(&writer);
 
 bail:
@@ -1326,6 +1366,12 @@ encoder_listencode_obj(PyEncoderObject *s, PyObject *markers, _PyUnicodeWriter *
         rv = encoder_listencode_dict(s, markers, writer, obj, newline_indent);
         _Py_LeaveRecursiveCall();
         return rv;
+    }
+    else if (PyObject_TypeCheck(obj, (PyTypeObject *)s->Decimal)) {
+        PyObject *encoded = PyObject_CallOneArg(s->encode_decimal, obj);
+        if (encoded == NULL)
+            return -1;
+        return _steal_accumulate(writer, encoded);
     }
     else {
         PyErr_Format(PyExc_TypeError,
@@ -1591,6 +1637,7 @@ static int
 encoder_traverse(PyEncoderObject *self, visitproc visit, void *arg)
 {
     Py_VISIT(Py_TYPE(self));
+    Py_VISIT(self->encode_decimal);
     Py_VISIT(self->indent);
     Py_VISIT(self->key_separator);
     Py_VISIT(self->item_separator);
@@ -1601,6 +1648,7 @@ static int
 encoder_clear(PyEncoderObject *self)
 {
     /* Deallocate Encoder */
+    Py_CLEAR(self->encode_decimal);
     Py_CLEAR(self->indent);
     Py_CLEAR(self->key_separator);
     Py_CLEAR(self->item_separator);

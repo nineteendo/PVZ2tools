@@ -1,5 +1,5 @@
 # Copyright (C) 2024 Nice Zombies
-# TODO(Nice Zombies): replace with jsonyx._accelerator.c
+# TODO(Nice Zombies): replace with jsonyx._speedups.c
 """JSON accelerator."""
 from __future__ import annotations
 

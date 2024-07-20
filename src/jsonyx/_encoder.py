@@ -5,6 +5,7 @@ from __future__ import annotations
 __all__: list[str] = ["make_writer"]
 
 import re
+from decimal import Decimal
 from math import inf
 from re import Match, Pattern
 from typing import TYPE_CHECKING
@@ -30,7 +31,7 @@ _ESCAPE_DCT: dict[str, str] = {chr(i): f"\\u{i:04x}" for i in range(0x20)} | {
 }
 
 try:
-    from jsonyx._accelerator import encode_basestring, encode_basestring_ascii
+    from jsonyx._speedups import encode_basestring, encode_basestring_ascii
 except ImportError:
     def encode_basestring(s: str) -> str:
         """Return the JSON representation of a Python string."""
@@ -60,8 +61,9 @@ except ImportError:
         return f'"{_ESCAPE_ASCII.sub(replace, s)}"'
 
 
-# pylint: disable-next=R0915, R0913
+# pylint: disable-next=R0915, R0913, R0914
 def make_writer(  # noqa: C901, PLR0915, PLR0917, PLR0913
+    encode_decimal: Callable[[Decimal], str],
     indent: str | None,
     key_separator: str,
     item_separator: str,
@@ -193,6 +195,8 @@ def make_writer(  # noqa: C901, PLR0915, PLR0917, PLR0913
             write_list(obj, write, current_indent)  # type: ignore
         elif isinstance(obj, dict):
             write_dict(obj, write, current_indent)  # type: ignore
+        elif isinstance(obj, Decimal):
+            write(encode_decimal(obj))
         else:
             msg: str = f"{type(obj).__name__} is not JSON serializable"
             raise TypeError(msg)
