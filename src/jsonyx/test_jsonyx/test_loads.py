@@ -233,8 +233,10 @@ def test_string(json: ModuleType, string: str, expected: Any) -> None:
     (r'"\a"', "Invalid backslash escape", 2, 4),
     (r'"\u"', "Expecting 4 hex digits", 4, 8),
     (r'"\u0xff"', "Expecting 4 hex digits", 4, 8),
+    (r'"\u????"', "Expecting 4 hex digits", 4, 8),
     (r'"\ud800\u"', "Expecting 4 hex digits", 10, 14),
     (r'"\ud800\u0xff"', "Expecting 4 hex digits", 10, 14),
+    (r'"\ud800\u????"', "Expecting 4 hex digits", 10, 14),
 ])
 def test_invalid_string(
     json: ModuleType, string: str, msg: str, colno: int, end_colno: int,
@@ -270,19 +272,42 @@ def test_array(json: ModuleType, string: str, expected: Any) -> None:
 
 @pytest.mark.parametrize(("string", "expected"), [
     # In empty array
+    ("[ ]", []),
+
+    # Before first element
+    ("[ 1,2,3]", [1, 2, 3]),
+
+    # Before comma's
+    ("[1 ,2 ,3]", [1, 2, 3]),
+
+    # After comma's
+    ("[1, 2, 3]", [1, 2, 3]),
+
+    # After last element
+    ("[1,2,3 ]", [1, 2, 3]),
+])
+def test_array_whitespace(
+    json: ModuleType, string: str, expected: Any,
+) -> None:
+    """Test whitespace in JSON array."""
+    assert json.loads(string) == expected
+
+
+@pytest.mark.parametrize(("string", "expected"), [
+    # In empty array
     ("[/**/]", []),
 
     # Before first element
-    ("[/**/1, 2, 3]", [1, 2, 3]),
+    ("[/**/1,2,3]", [1, 2, 3]),
 
     # Before comma's
-    ("[1/**/, 2/**/, 3]", [1, 2, 3]),
+    ("[1/**/,2/**/,3]", [1, 2, 3]),
 
     # After comma's
     ("[1,/**/2,/**/3]", [1, 2, 3]),
 
     # After last element
-    ("[1, 2, 3/**/]", [1, 2, 3]),
+    ("[1,2,3/**/]", [1, 2, 3]),
 ])
 def test_array_comments(json: ModuleType, string: str, expected: Any) -> None:
     """Test comments in JSON array."""
@@ -331,25 +356,54 @@ def test_object(json: ModuleType, string: str, expected: Any) -> None:
 
 @pytest.mark.parametrize(("string", "expected"), [
     # In empty object
+    ("{ }", {}),
+
+    # Before first element
+    ('{ "a":0,"b":0,"c":0}', {"a": 0, "b": 0, "c": 0}),
+
+    # Before colon
+    ('{"a" :0,"b" :0,"c" :0}', {"a": 0, "b": 0, "c": 0}),
+
+    # After colon
+    ('{"a": 0,"b": 0,"c": 0}', {"a": 0, "b": 0, "c": 0}),
+
+    # Before comma
+    ('{"a":0 ,"b":0 ,"c":0}', {"a": 0, "b": 0, "c": 0}),
+
+    # After comma
+    ('{"a":0, "b":0, "c":0}', {"a": 0, "b": 0, "c": 0}),
+
+    # After last element
+    ('{"a":0,"b":0,"c":0 }', {"a": 0, "b": 0, "c": 0}),
+])
+def test_object_whitespace(
+    json: ModuleType, string: str, expected: Any,
+) -> None:
+    """Test whitespace in JSON object."""
+    assert json.loads(string) == expected
+
+
+@pytest.mark.parametrize(("string", "expected"), [
+    # In empty object
     ("{/**/}", {}),
 
     # Before first element
-    ('{"a": 0, "b": 0, "c": 0}', {"a": 0, "b": 0, "c": 0}),
+    ('{/**/"a":0,"b":0,"c":0}', {"a": 0, "b": 0, "c": 0}),
 
     # Before colon
-    ('{"a"/**/: 0, "b"/**/: 0, "c"/**/: 0}', {"a": 0, "b": 0, "c": 0}),
+    ('{"a"/**/:0,"b"/**/:0,"c"/**/:0}', {"a": 0, "b": 0, "c": 0}),
 
     # After colon
-    ('{"a":/**/0, "b":/**/0, "c":/**/0}', {"a": 0, "b": 0, "c": 0}),
+    ('{"a":/**/0,"b":/**/0,"c":/**/0}', {"a": 0, "b": 0, "c": 0}),
 
     # Before comma
-    ('{"a": 0/**/, "b": 0/**/, "c": 0}', {"a": 0, "b": 0, "c": 0}),
+    ('{"a":0/**/,"b":0/**/,"c":0}', {"a": 0, "b": 0, "c": 0}),
 
     # After comma
-    ('{"a": 0,/**/"b": 0,/**/"c": 0}', {"a": 0, "b": 0, "c": 0}),
+    ('{"a":0,/**/"b":0,/**/"c":0}', {"a": 0, "b": 0, "c": 0}),
 
     # After last element
-    ('{"a": 0, "b": 0, "c": 0/**/}', {"a": 0, "b": 0, "c": 0}),
+    ('{"a":0,"b":0,"c":0/**/}', {"a": 0, "b": 0, "c": 0}),
 ])
 def test_object_comments(json: ModuleType, string: str, expected: Any) -> None:
     """Test comments in JSON object."""
@@ -414,6 +468,18 @@ def test_trailing_comma(json: ModuleType, string: str, expected: Any) -> None:
 
 @pytest.mark.parametrize("string", [
     # Before value
+    " 0",
+
+    # After value
+    "0 ",
+])
+def test_value_whitespace(json: ModuleType, string: str) -> None:
+    """Test whitespace around JSON value."""
+    assert json.loads(string) == 0
+
+
+@pytest.mark.parametrize("string", [
+    # Before value
     "/**/0",
 
     # After value
@@ -434,13 +500,32 @@ def test_invalid_value(json: ModuleType, string: str) -> None:
 
 
 @pytest.mark.parametrize("string", [
+    # One character
+    "0 ",
+    "0\t",
+    "0\n",
+    "0\r",
+
+    # Multiple characters
+    "0   ",
+])
+def test_whitespace(json: ModuleType, string: str) -> None:
+    """Test whitespace."""
+    assert json.loads(string) == 0
+
+
+@pytest.mark.parametrize("string", [
     # One comment
-    "0 // line comment",
-    "0 /* block comment */",
+    "0//line comment",
+    "0/*block comment*/",
 
     # Multiple comments
-    "0 // comment 1\n//comment 2\n//comment 3",
-    "0 /* comment 1 */ /* comment 2 */ /* comment 3 */",
+    "0//comment 1\n//comment 2\n//comment 3",
+    "0/*comment 1*//*comment 2*//*comment 3*/",
+
+    # Whitespace
+    "0 //comment 1\n //comment 2\n //comment 3\n ",
+    "0 /*comment 1*/ /*comment 2*/ /*comment 3*/ ",
 ])
 def test_comments(json: ModuleType, string: str) -> None:
     """Test comments."""
@@ -450,22 +535,22 @@ def test_comments(json: ModuleType, string: str) -> None:
 def test_invalid_comment(json: ModuleType) -> None:
     """Test invalid comment."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
-        json.loads("0 /* unterminated comment", allow=COMMENTS)
+        json.loads("0/*unterminated comment", allow=COMMENTS)
 
-    _check_syntax_err(exc_info, "Unterminated comment", 3, 26)
+    _check_syntax_err(exc_info, "Unterminated comment", 2, 24)
 
 
 @pytest.mark.parametrize("string", [
-    "0 // line comment",
-    "0 /* block comment */",
-    "0 /* unterminated comment",
+    "0//line comment",
+    "0/*block comment*/",
+    "0/*unterminated comment",
 ])
 def test_comments_not_allowed(json: ModuleType, string: str) -> None:
     """Test comments if not allowed."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
         json.loads(string)
 
-    _check_syntax_err(exc_info, "Comments are not allowed", 3, len(string) + 1)
+    _check_syntax_err(exc_info, "Comments are not allowed", 2, len(string) + 1)
 
 
 def test_end_of_file(json: ModuleType) -> None:
