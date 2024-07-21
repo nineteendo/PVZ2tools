@@ -643,6 +643,7 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
     PyObject *rval = NULL;
     PyObject *key = NULL;
     Py_ssize_t next_idx;
+    Py_ssize_t obj_idx = idx - 1;
     Py_ssize_t colon_idx;
     Py_ssize_t comma_idx;
 
@@ -662,9 +663,13 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
     if (idx > end_idx || PyUnicode_READ(kind, str, idx) != '}') {
         while (1) {
             PyObject *new_key;
+            if (idx > end_idx) {
+                raise_errmsg("Unterminated object", pyfilename, pystr, obj_idx, idx);
+                goto bail;
+            }
 
             /* read key */
-            if (idx > end_idx || PyUnicode_READ(kind, str, idx) != '"') {
+            if (PyUnicode_READ(kind, str, idx) != '"') {
                 raise_errmsg("Expecting string", pyfilename, pystr, idx, -1);
                 goto bail;
             }
@@ -717,7 +722,11 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
             }
 
             /* bail if the object is closed or we didn't get the , delimiter */
-            if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == ',') {
+            if (idx > end_idx) {
+                raise_errmsg("Unterminated object", pyfilename, pystr, obj_idx, idx);
+                goto bail;
+            }
+            if (PyUnicode_READ(kind, str, idx) == ',') {
                 comma_idx = idx;
                 idx++;
 
@@ -726,7 +735,7 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
                     goto bail;
                 }
             }
-            else if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == '}') {
+            else if (PyUnicode_READ(kind, str, idx) == '}') {
                 break;
             }
             else if (idx == comma_idx) {
@@ -772,6 +781,7 @@ _parse_array_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, P
     PyObject *val = NULL;
     PyObject *rval;
     Py_ssize_t next_idx;
+    Py_ssize_t arr_idx = idx - 1;
     Py_ssize_t comma_idx;
 
     rval = PyList_New(0);
@@ -790,6 +800,10 @@ _parse_array_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, P
     /* only loop if the array is non-empty */
     if (idx > end_idx || PyUnicode_READ(kind, str, idx) != ']') {
         while (1) {
+            if (idx > end_idx) {
+                raise_errmsg("Unterminated array", pyfilename, pystr, arr_idx, idx);
+                goto bail;
+            }
 
             /* read any JSON term  */
             val = scan_once_unicode(s, memo, pyfilename, pystr, idx, &next_idx);
@@ -808,7 +822,11 @@ _parse_array_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, P
             }
 
             /* bail if the array is closed or we didn't get the , delimiter */
-            if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == ',') {
+            if (idx > end_idx) {
+                raise_errmsg("Unterminated array", pyfilename, pystr, arr_idx, idx);
+                goto bail;
+            }
+            if (PyUnicode_READ(kind, str, idx) == ',') {
                 comma_idx = idx;
                 idx++;
 
@@ -817,7 +835,7 @@ _parse_array_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, P
                     goto bail;
                 }
             }
-            else if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == ']') {
+            else if (PyUnicode_READ(kind, str, idx) == ']') {
                 break;
             }
             else if (idx == comma_idx) {

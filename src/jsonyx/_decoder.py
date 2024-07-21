@@ -39,9 +39,7 @@ _match_whitespace: Callable[[str, int], Match[str] | None] = re.compile(
 ).match
 
 
-def _get_err_context(doc: str, start: int, end: int) -> (
-    tuple[int, str, int]
-):
+def _get_err_context(doc: str, start: int, end: int) -> tuple[int, str, int]:
     line_start: int = doc.rfind("\n", 0, start) + 1
     if (line_end := doc.find("\n", start)) == -1:
         line_end = len(doc)
@@ -78,13 +76,13 @@ def _unescape_unicode(filename: str, s: str, end: int) -> int:
             pass
 
     msg: str = "Expecting 4 hex digits"
-    raise JSONSyntaxError(msg, filename, s, end, end + 4)
+    raise _errmsg(msg, filename, s, end, end + 4)
 
 
 # pylint: disable-next=R0912
-def _scan_string(filename: str, s: str, end: int) -> (  # noqa: C901, PLR0912
-    tuple[str, int]
-):
+def _scan_string(  # noqa: C901, PLR0912
+    filename: str, s: str, end: int,
+) -> tuple[str, int]:
     chunks: list[str] = []
     append_chunk: Callable[[str], None] = chunks.append
     str_idx: int = end - 1
@@ -100,7 +98,7 @@ def _scan_string(filename: str, s: str, end: int) -> (  # noqa: C901, PLR0912
             terminator: str = s[end]
         except IndexError:
             msg: str = "Unterminated string"
-            raise JSONSyntaxError(msg, filename, s, str_idx, end) from None
+            raise _errmsg(msg, filename, s, str_idx, end) from None
 
         if terminator == '"':
             return "".join(chunks), end + 1
@@ -108,17 +106,17 @@ def _scan_string(filename: str, s: str, end: int) -> (  # noqa: C901, PLR0912
         if terminator != "\\":
             if terminator == "\n":
                 msg = "Unterminated string"
-                raise JSONSyntaxError(msg, filename, s, str_idx, end)
+                raise _errmsg(msg, filename, s, str_idx, end)
 
             msg = "Unescaped control character"
-            raise JSONSyntaxError(msg, filename, s, end)
+            raise _errmsg(msg, filename, s, end)
 
         end += 1
         try:
             esc = s[end]
         except IndexError:
             msg = "Expecting escaped character"
-            raise JSONSyntaxError(msg, filename, s, end) from None
+            raise _errmsg(msg, filename, s, end) from None
 
         # If not a unicode escape sequence, must be in the lookup table
         if esc != "u":
@@ -127,12 +125,10 @@ def _scan_string(filename: str, s: str, end: int) -> (  # noqa: C901, PLR0912
             except KeyError:
                 if esc == "\n":
                     msg = "Expecting escaped character"
-                    raise JSONSyntaxError(msg, filename, s, end) from None
+                    raise _errmsg(msg, filename, s, end) from None
 
                 msg = "Invalid backslash escape"
-                raise JSONSyntaxError(
-                    msg, filename, s, end - 1, end + 1,
-                ) from None
+                raise _errmsg(msg, filename, s, end - 1, end + 1) from None
 
             end += 1
         else:
@@ -166,7 +162,7 @@ except ImportError:
 class JSONSyntaxError(SyntaxError):
     """JSON syntax error."""
 
-    def __init__(    # pylint: disable=R0913
+    def __init__(  # pylint: disable=R0913
         self, msg: str, filename: str, doc: str, start: int, end: int = -1,
     ) -> None:
         """Create new JSON syntax error."""
@@ -187,6 +183,9 @@ class JSONSyntaxError(SyntaxError):
             f"{self.msg} (file {self.filename}, line {self.lineno:d}, column "
             f"{self.colno:d})"
         )
+
+
+_errmsg: type[JSONSyntaxError] = JSONSyntaxError
 
 
 try:
@@ -225,9 +224,7 @@ except ImportError:
                         else:
                             msg = "Comments are not allowed"
 
-                        raise JSONSyntaxError(
-                            msg, filename, s, comment_idx, len(s),
-                        )
+                        raise _errmsg(msg, filename, s, comment_idx, len(s))
 
                     end += 2
                 else:
@@ -235,17 +232,24 @@ except ImportError:
 
                 if not allow_comments:
                     msg = "Comments are not allowed"
-                    raise JSONSyntaxError(msg, filename, s, comment_idx, end)
+                    raise _errmsg(msg, filename, s, comment_idx, end)
 
-        # pylint: disable-next=R0913, R0912
-        def scan_object(  # noqa: C901, PLR0912
+        # pylint: disable-next=R0913, R0912, R0915
+        def scan_object(  # noqa: C901, PLR0912, PLR0915
             filename: str, s: str, end: int,
         ) -> tuple[dict[str, Any], int]:
+            obj_idx: int = end - 1
             end = skip_comments(filename, s, end)
-            if (nextchar := s[end:end + 1]) != '"':
+            try:
+                nextchar: str = s[end]
+            except IndexError:
+                msg: str = "Unterminated object"
+                raise _errmsg(msg, filename, s, obj_idx, end) from None
+
+            if nextchar != '"':
                 if nextchar != "}":
-                    msg: str = "Expecting string"
-                    raise JSONSyntaxError(msg, filename, s, end)
+                    msg = "Expecting string"
+                    raise _errmsg(msg, filename, s, end)
 
                 return {}, end + 1
 
@@ -258,7 +262,7 @@ except ImportError:
                     key = memoize(key, key)
                 elif not allow_duplicate_keys:
                     msg = "Duplicate keys are not allowed"
-                    raise JSONSyntaxError(msg, filename, s, key_idx, end)
+                    raise _errmsg(msg, filename, s, key_idx, end)
                 else:
                     key = DuplicateKey(key)
 
@@ -266,40 +270,59 @@ except ImportError:
                 end = skip_comments(filename, s, end)
                 if s[end:end + 1] != ":":
                     msg = "Expecting colon"
-                    raise JSONSyntaxError(msg, filename, s, colon_idx)
+                    raise _errmsg(msg, filename, s, colon_idx)
 
                 end = skip_comments(filename, s, end + 1)
                 result[key], end = scan_value(filename, s, end)
                 comma_idx: int = end
                 end = skip_comments(filename, s, end)
-                if (nextchar := s[end:end + 1]) == ",":
+                try:
+                    nextchar = s[end]
+                except IndexError:
+                    msg = "Unterminated object"
+                    raise _errmsg(msg, filename, s, obj_idx, end) from None
+
+                if nextchar == ",":
                     comma_idx = end
                     end = skip_comments(filename, s, end + 1)
                 elif nextchar == "}":
                     return result, end + 1
                 elif end == comma_idx:
                     msg = "Expecting comma"
-                    raise JSONSyntaxError(msg, filename, s, comma_idx)
+                    raise _errmsg(msg, filename, s, comma_idx)
                 elif not allow_missing_commas:
                     msg = "Missing comma's are not allowed"
-                    raise JSONSyntaxError(msg, filename, s, comma_idx)
+                    raise _errmsg(msg, filename, s, comma_idx)
 
-                if (nextchar := s[end:end + 1]) != '"':
+                try:
+                    nextchar = s[end]
+                except IndexError:
+                    msg = "Unterminated object"
+                    raise _errmsg(msg, filename, s, obj_idx, end) from None
+
+                if nextchar != '"':
                     if nextchar != "}":
                         msg = "Expecting string"
-                        raise JSONSyntaxError(msg, filename, s, end)
+                        raise _errmsg(msg, filename, s, end)
 
                     if not allow_trailing_comma:
                         msg = "Trailing comma is not allowed"
-                        raise JSONSyntaxError(msg, filename, s, comma_idx)
+                        raise _errmsg(msg, filename, s, comma_idx)
 
                     return result, end + 1
 
-        def scan_array(filename: str, s: str, end: int) -> (
-            tuple[list[Any], int]
-        ):
+        def scan_array(  # noqa: C901
+            filename: str, s: str, end: int,
+        ) -> tuple[list[Any], int]:
+            arr_idx: int = end - 1
             end = skip_comments(filename, s, end)
-            if (nextchar := s[end:end + 1]) == "]":
+            try:
+                nextchar: str = s[end]
+            except IndexError:
+                msg: str = "Unterminated array"
+                raise _errmsg(msg, filename, s, arr_idx, end) from None
+
+            if nextchar == "]":
                 return [], end + 1
 
             values: list[Any] = []
@@ -309,22 +332,34 @@ except ImportError:
                 append_value(value)
                 comma_idx: int = end
                 end = skip_comments(filename, s, end)
-                if (nextchar := s[end:end + 1]) == ",":
+                try:
+                    nextchar = s[end]
+                except IndexError:
+                    msg = "Unterminated array"
+                    raise _errmsg(msg, filename, s, arr_idx, end) from None
+
+                if nextchar == ",":
                     comma_idx = end
                     end = skip_comments(filename, s, end + 1)
                 elif nextchar == "]":
                     return values, end + 1
                 elif end == comma_idx:
                     msg = "Expecting comma"
-                    raise JSONSyntaxError(msg, filename, s, comma_idx)
+                    raise _errmsg(msg, filename, s, comma_idx)
                 elif not allow_missing_commas:
                     msg = "Missing comma's are not allowed"
-                    raise JSONSyntaxError(msg, filename, s, comma_idx)
+                    raise _errmsg(msg, filename, s, comma_idx)
 
-                if s[end:end + 1] == "]":
+                try:
+                    nextchar = s[end]
+                except IndexError:
+                    msg = "Unterminated array"
+                    raise _errmsg(msg, filename, s, arr_idx, end) from None
+
+                if nextchar == "]":
                     if not allow_trailing_comma:
                         msg = "Trailing comma is not allowed"
-                        raise JSONSyntaxError(msg, filename, s, comma_idx)
+                        raise _errmsg(msg, filename, s, comma_idx)
 
                     return values, end + 1
 
@@ -336,7 +371,7 @@ except ImportError:
                 nextchar = s[idx]
             except IndexError:
                 msg: str = "Expecting value"
-                raise JSONSyntaxError(msg, filename, s, idx) from None
+                raise _errmsg(msg, filename, s, idx) from None
 
             result: Any
             if nextchar == '"':
@@ -358,30 +393,30 @@ except ImportError:
                     result = parse_float(integer + (frac or "") + (exp or ""))
                     if not use_decimal and isinf(result):
                         msg = "Big numbers require decimal"
-                        raise JSONSyntaxError(msg, filename, s, idx, end)
+                        raise _errmsg(msg, filename, s, idx, end)
                 else:
                     result = int(integer)
             elif nextchar == "N" and s[idx:idx + 3] == "NaN":
                 if not allow_nan_and_infinity:
                     msg = "NaN is not allowed"
-                    raise JSONSyntaxError(msg, filename, s, idx, idx + 3)
+                    raise _errmsg(msg, filename, s, idx, idx + 3)
 
                 result, end = parse_float("NaN"), idx + 3
             elif nextchar == "I" and s[idx:idx + 8] == "Infinity":
                 if not allow_nan_and_infinity:
                     msg = "Infinity is not allowed"
-                    raise JSONSyntaxError(msg, filename, s, idx, idx + 8)
+                    raise _errmsg(msg, filename, s, idx, idx + 8)
 
                 result, end = parse_float("Infinity"), idx + 8
             elif nextchar == "-" and s[idx:idx + 9] == "-Infinity":
                 if not allow_nan_and_infinity:
                     msg = "-Infinity is not allowed"
-                    raise JSONSyntaxError(msg, filename, s, idx, idx + 9)
+                    raise _errmsg(msg, filename, s, idx, idx + 9)
 
                 result, end = parse_float("-Infinity"), idx + 9
             else:
                 msg = "Expecting value"
-                raise JSONSyntaxError(msg, filename, s, idx)
+                raise _errmsg(msg, filename, s, idx)
 
             return result, end
 
@@ -396,7 +431,7 @@ except ImportError:
 
             if (end := skip_comments(filename, s, end)) < len(s):
                 msg: str = "Expecting end of file"
-                raise JSONSyntaxError(msg, filename, s, end)
+                raise _errmsg(msg, filename, s, end)
 
             return obj
 

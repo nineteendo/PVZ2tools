@@ -25,13 +25,13 @@ def _check_syntax_err(
     end_colno: int = -1,
 ) -> None:
     exc: Any = exc_info.value
+    if end_colno == -1:
+        end_colno = colno + 1
+
     assert exc.msg == msg
     assert exc.lineno == 1
     assert exc.colno == colno
-    if end_colno == -1:
-        assert exc.end_colno == colno + 1
-    else:
-        assert exc.end_colno == end_colno
+    assert exc.end_colno == end_colno
 
 
 @pytest.mark.parametrize(("string", "expected"), [
@@ -161,9 +161,9 @@ def test_number(json: ModuleType, string: str, expected: Any) -> None:
     ("1e400", Decimal("1E+400")),
     ("-1e400", Decimal("-1E+400")),
 ])
-def test_big_number_decimal(json: ModuleType, string: str, expected: Any) -> (
-    None
-):
+def test_big_number_decimal(
+    json: ModuleType, string: str, expected: Any,
+) -> None:
     """Test big JSON number with decimal."""
     assert json.loads(string, use_decimal=True) == expected
 
@@ -289,19 +289,22 @@ def test_array_comments(json: ModuleType, string: str, expected: Any) -> None:
     assert json.loads(string, allow=COMMENTS) == expected
 
 
-@pytest.mark.parametrize(("string", "msg", "colno"), [
-    ("[1-2-3]", "Expecting comma", 3),
-    ("[1 2 3]", "Missing comma's are not allowed", 3),
-    ("[0,]", "Trailing comma is not allowed", 3),
+@pytest.mark.parametrize(("string", "msg", "colno", "end_colno"), [
+    ("[", "Unterminated array", 1, 2),
+    ("[0", "Unterminated array", 1, 3),
+    ("[1-2-3]", "Expecting comma", 3, -1),
+    ("[1 2 3]", "Missing comma's are not allowed", 3, -1),
+    ("[0,", "Unterminated array", 1, 4),
+    ("[0,]", "Trailing comma is not allowed", 3, -1),
 ])
 def test_invalid_array(
-    json: ModuleType, string: str, msg: str, colno: int,
+    json: ModuleType, string: str, msg: str, colno: int, end_colno: int,
 ) -> None:
     """Test invalid JSON array."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
         json.loads(string)
 
-    _check_syntax_err(exc_info, msg, colno)
+    _check_syntax_err(exc_info, msg, colno, end_colno)
 
 
 @pytest.mark.parametrize(("string", "expected"), [
@@ -309,17 +312,17 @@ def test_invalid_array(
     ("{}", {}),
 
     # One value
-    ('{"k": ""}', {"k": ""}),
-    ('{"k": 0}', {"k": 0}),
-    ('{"k": 0.0}', {"k": 0.0}),
-    ('{"k": {}}', {"k": {}}),
-    ('{"k": []}', {"k": []}),
-    ('{"k": true}', {"k": True}),
-    ('{"k": false}', {"k": False}),
-    ('{"k": null}', {"k": None}),
+    ('{"a": ""}', {"a": ""}),
+    ('{"a": 0}', {"a": 0}),
+    ('{"a": 0.0}', {"a": 0.0}),
+    ('{"a": {}}', {"a": {}}),
+    ('{"a": []}', {"a": []}),
+    ('{"a": true}', {"a": True}),
+    ('{"a": false}', {"a": False}),
+    ('{"a": null}', {"a": None}),
 
     # Multiple values
-    ('{"k1": 0, "k2": 0, "k3": 0}', {"k1": 0, "k2": 0, "k3": 0}),
+    ('{"a": 0, "b": 0, "c": 0}', {"a": 0, "b": 0, "c": 0}),
 ])  # type: ignore
 def test_object(json: ModuleType, string: str, expected: Any) -> None:
     """Test JSON object."""
@@ -331,22 +334,22 @@ def test_object(json: ModuleType, string: str, expected: Any) -> None:
     ("{/**/}", {}),
 
     # Before first element
-    ('{"k1": 0, "k2": 0, "k3": 0}', {"k1": 0, "k2": 0, "k3": 0}),
+    ('{"a": 0, "b": 0, "c": 0}', {"a": 0, "b": 0, "c": 0}),
 
     # Before colon
-    ('{"k1"/**/: 0, "k2"/**/: 0, "k3"/**/: 0}', {"k1": 0, "k2": 0, "k3": 0}),
+    ('{"a"/**/: 0, "b"/**/: 0, "c"/**/: 0}', {"a": 0, "b": 0, "c": 0}),
 
     # After colon
-    ('{"k1":/**/0, "k2":/**/0, "k3":/**/0}', {"k1": 0, "k2": 0, "k3": 0}),
+    ('{"a":/**/0, "b":/**/0, "c":/**/0}', {"a": 0, "b": 0, "c": 0}),
 
     # Before comma
-    ('{"k1": 0/**/, "k2": 0/**/, "k3": 0}', {"k1": 0, "k2": 0, "k3": 0}),
+    ('{"a": 0/**/, "b": 0/**/, "c": 0}', {"a": 0, "b": 0, "c": 0}),
 
     # After comma
-    ('{"k1": 0,/**/"k2": 0,/**/"k3": 0}', {"k1": 0, "k2": 0, "k3": 0}),
+    ('{"a": 0,/**/"b": 0,/**/"c": 0}', {"a": 0, "b": 0, "c": 0}),
 
     # After last element
-    ('{"k1": 0, "k2": 0, "k3": 0/**/}', {"k1": 0, "k2": 0, "k3": 0}),
+    ('{"a": 0, "b": 0, "c": 0/**/}', {"a": 0, "b": 0, "c": 0}),
 ])
 def test_object_comments(json: ModuleType, string: str, expected: Any) -> None:
     """Test comments in JSON object."""
@@ -354,13 +357,16 @@ def test_object_comments(json: ModuleType, string: str, expected: Any) -> None:
 
 
 @pytest.mark.parametrize(("string", "msg", "colno", "end_colno"), [
+    ("{", "Unterminated object", 1, 2),
     ("{0: 0}", "Expecting string", 2, -1),
-    ('{"k": 1, "k": 2, "k": 3}', "Duplicate keys are not allowed", 10, 13),
-    ('{"k"}', "Expecting colon", 5, -1),
-    ('{"k1": 0"k2": 0"k3": 0}', "Expecting comma", 9, -1),
-    ('{"k1": 0 "k2": 0 "k3": 0}', "Missing comma's are not allowed", 9, -1),
-    ('{"k": 1, 2}', "Expecting string", 10, -1),
-    ('{"k": 0,}', "Trailing comma is not allowed", 8, -1),
+    ('{"a": 1, "a": 2, "a": 3}', "Duplicate keys are not allowed", 10, 13),
+    ('{"a"}', "Expecting colon", 5, -1),
+    ('{"a": 0', "Unterminated object", 1, 8),
+    ('{"a": 0"b": 0"c": 0}', "Expecting comma", 8, -1),
+    ('{"a": 0 "b": 0 "c": 0}', "Missing comma's are not allowed", 8, -1),
+    ('{"a": 1, 2, 3}', "Expecting string", 10, -1),
+    ('{"a": 0,', "Unterminated object", 1, 9),
+    ('{"a": 0,}', "Trailing comma is not allowed", 8, -1),
 ])
 def test_invalid_object(
     json: ModuleType, string: str, msg: str, colno: int, end_colno: int,
@@ -375,22 +381,22 @@ def test_invalid_object(
 def test_duplicate_keys(json: ModuleType) -> None:
     """Test duplicate keys."""
     obj: dict[str, int] = json.loads(
-        '{"k": 1, "k": 2, "k": 3}', allow=DUPLICATE_KEYS,
+        '{"a": 1, "a": 2, "a": 3}', allow=DUPLICATE_KEYS,
     )
-    assert list(map(str, obj.keys())) == ["k", "k", "k"]
+    assert list(map(str, obj.keys())) == ["a", "a", "a"]
     assert list(obj.values()) == [1, 2, 3]
 
 
 def test_reuse_keys(json: ModuleType) -> None:
     """Test if keys are re-used."""
-    obj: list[dict[str, int]] = json.loads('[{"k": 0}, {"k": 0}, {"k": 0}]')
+    obj: list[dict[str, int]] = json.loads('[{"a": 1}, {"a": 2}, {"a": 3}]')
     ids: set[int] = {id(next(iter(value.keys()))) for value in obj}
     assert len(ids) == 1
 
 
 @pytest.mark.parametrize(("string", "expected"), [
     ("[1 2 3]", [1, 2, 3]),
-    ('{"k1": 0 "k2": 0 "k3": 0}', {"k1": 0, "k2": 0, "k3": 0}),
+    ('{"a": 0 "b": 0 "c": 0}', {"a": 0, "b": 0, "c": 0}),
 ])
 def test_missing_commas(json: ModuleType, string: str, expected: Any) -> None:
     """Test missing comma's."""
@@ -399,7 +405,7 @@ def test_missing_commas(json: ModuleType, string: str, expected: Any) -> None:
 
 @pytest.mark.parametrize(("string", "expected"), [
     ("[0,]", [0]),
-    ('{"k": 0,}', {"k": 0}),
+    ('{"a": 0,}', {"a": 0}),
 ])
 def test_trailing_comma(json: ModuleType, string: str, expected: Any) -> None:
     """Test trailing comma."""
@@ -428,7 +434,7 @@ def test_invalid_value(json: ModuleType, string: str) -> None:
 
 
 @pytest.mark.parametrize("string", [
-    # Single comments
+    # One comment
     "0 // line comment",
     "0 /* block comment */",
 

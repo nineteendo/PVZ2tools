@@ -31,8 +31,8 @@ if cjson:
 @pytest.fixture(params=[cjson, pyjson], ids=["cjson", "pyjson"], name="json")
 def get_json(request: pytest.FixtureRequest) -> ModuleType:
     """Get JSON module."""
-    result: ModuleType | None = request.param
-    if result is None:
+    json: ModuleType | None = request.param
+    if json is None:
         pytest.skip("requires jsonyx._speedups")
 
-    return result
+    return json
