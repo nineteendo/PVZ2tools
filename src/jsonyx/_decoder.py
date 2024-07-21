@@ -6,7 +6,7 @@ __all__: list[str] = ["DuplicateKey", "JSONSyntaxError", "make_scanner"]
 
 import re
 from decimal import Decimal
-from math import inf, isinf, nan
+from math import isinf
 from re import DOTALL, MULTILINE, VERBOSE, Match, RegexFlag
 from shutil import get_terminal_size
 from typing import TYPE_CHECKING
@@ -366,19 +366,19 @@ except ImportError:
                     msg = "NaN is not allowed"
                     raise JSONSyntaxError(msg, filename, s, idx, idx + 3)
 
-                result, end = nan, idx + 3
+                result, end = parse_float("NaN"), idx + 3
             elif nextchar == "I" and s[idx:idx + 8] == "Infinity":
                 if not allow_nan_and_infinity:
                     msg = "Infinity is not allowed"
                     raise JSONSyntaxError(msg, filename, s, idx, idx + 8)
 
-                result, end = inf, idx + 8
+                result, end = parse_float("Infinity"), idx + 8
             elif nextchar == "-" and s[idx:idx + 9] == "-Infinity":
                 if not allow_nan_and_infinity:
                     msg = "-Infinity is not allowed"
                     raise JSONSyntaxError(msg, filename, s, idx, idx + 9)
 
-                result, end = -inf, idx + 9
+                result, end = parse_float("-Infinity"), idx + 9
             else:
                 msg = "Expecting value"
                 raise JSONSyntaxError(msg, filename, s, idx)

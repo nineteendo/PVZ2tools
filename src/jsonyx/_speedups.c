@@ -973,6 +973,7 @@ scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyOb
 
     Returns a new PyObject representation of the term.
     */
+    PyObject *numstr;
     PyObject *res;
     const void *str;
     int kind;
@@ -1044,6 +1045,13 @@ scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyOb
                     return NULL;
                 }
                 *next_idx_ptr = idx + 3;
+                if (s->use_decimal) {
+                    numstr = PyUnicode_FromString("NaN");
+                    if (numstr == NULL) {
+                        return NULL;
+                    }
+                    return PyObject_CallOneArg(s->Decimal, numstr);
+                }
                 Py_RETURN_NAN;
             }
             break;
@@ -1061,6 +1069,13 @@ scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyOb
                     return NULL;
                 }
                 *next_idx_ptr = idx + 8;
+                if (s->use_decimal) {
+                    numstr = PyUnicode_FromString("Infinity");
+                    if (numstr == NULL) {
+                        return NULL;
+                    }
+                    return PyObject_CallOneArg(s->Decimal, numstr);
+                }
                 Py_RETURN_INF(+1);
             }
             break;
@@ -1078,6 +1093,13 @@ scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyOb
                 if (!s->allow_nan_and_infinity) {
                     raise_errmsg("-Infinity is not allowed", pyfilename, pystr, idx, idx + 9);
                     return NULL;
+                }
+                if (s->use_decimal) {
+                    numstr = PyUnicode_FromString("-Infinity");
+                    if (numstr == NULL) {
+                        return NULL;
+                    }
+                    return PyObject_CallOneArg(s->Decimal, numstr);
                 }
                 Py_RETURN_INF(-1);
             }

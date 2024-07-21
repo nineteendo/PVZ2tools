@@ -34,14 +34,6 @@ def _check_syntax_err(
         assert exc.end_colno == end_colno
 
 
-def test_empty(json: ModuleType) -> None:
-    """Test empty JSON."""
-    with pytest.raises(json.JSONSyntaxError) as exc_info:
-        json.loads("")
-
-    _check_syntax_err(exc_info, "Expecting value", 1)
-
-
 @pytest.mark.parametrize(("string", "expected"), [
     ("true", True),
     ("false", False),
@@ -53,14 +45,31 @@ def test_keywords(json: ModuleType, string: str, expected: Any) -> None:
 
 
 @pytest.mark.parametrize(("string", "expected"), [
+    ("NaN", Decimal("NaN")),
+    ("Infinity", Decimal("Infinity")),
+    ("-Infinity", Decimal("-Infinity")),
+])
+def test_nan_and_infinity_decimal(
+    json: ModuleType, string: str, expected: Any,
+) -> None:
+    """Test NaN and infinity with decimal."""
+    obj: Any = json.loads(string, allow=NAN_AND_INFINITY, use_decimal=True)
+    assert isinstance(obj, Decimal)
+    if isnan(expected):
+        assert isnan(obj)
+    else:
+        assert obj == expected
+
+
+@pytest.mark.parametrize(("string", "expected"), [
     ("NaN", nan),
     ("Infinity", inf),
     ("-Infinity", -inf),
 ])
-def test_nan_and_infinity(json: ModuleType, string: str, expected: Any) -> (
-    None
-):
-    """Test NaN and infinity."""
+def test_nan_and_infinity_float(
+    json: ModuleType, string: str, expected: Any,
+) -> None:
+    """Test NaN and infinity with float."""
     obj: Any = json.loads(string, allow=NAN_AND_INFINITY)
     assert isinstance(obj, float)
     if isnan(expected):
@@ -409,7 +418,7 @@ def test_value_comments(json: ModuleType, string: str) -> None:
     assert json.loads(string, allow=COMMENTS) == 0
 
 
-@pytest.mark.parametrize("string", ["-", "foo"])
+@pytest.mark.parametrize("string", ["", "-", "foo"])
 def test_invalid_value(json: ModuleType, string: str) -> None:
     """Test invalid JSON value."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
