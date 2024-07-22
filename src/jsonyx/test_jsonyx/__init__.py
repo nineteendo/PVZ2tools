@@ -15,7 +15,7 @@ from test.support.import_helper import import_fresh_module  # type: ignore
 from typing import TYPE_CHECKING
 
 import pytest
-from jsonyx import JSONSyntaxError
+from jsonyx import JSONSyntaxError, auto_decode
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -46,3 +46,22 @@ def test_duplicate_key(json: ModuleType) -> None:
     string: str = json.DuplicateKey("a")
     assert str(string) == "a"
     assert hash(string) == id(string)
+
+
+@pytest.mark.parametrize("s", [
+    "30",  # UTF-8
+    "0030",  # UTF-16 (BE)
+    "3000",  # UTF-16 (LE)
+    "00000030",  # UTF-32 (BE)
+    "30000000",  # UTF-32 (LE)
+
+    # Byte order marks
+    "ef bb bf 30",  # UTF-8
+    "feff 0030",  # UTF-16 (BE)
+    "fffe 3000",  # UTF-16 (LE)
+    "0000feff 00000030",  # UTF-32 (BE)
+    "fffe0000 30000000",  # UTF-32 (LE)
+])
+def test_auto_decode(s: str) -> None:
+    """Test auto_decode."""
+    assert auto_decode(bytes.fromhex(s)) == "0"

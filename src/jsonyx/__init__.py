@@ -14,6 +14,7 @@ __all__: list[str] = [
     "JSONDecoder",
     "JSONEncoder",
     "JSONSyntaxError",
+    "auto_decode",
     "dump",
     "dumps",
     "format_syntax_error",
@@ -61,7 +62,8 @@ EVERYTHING: frozenset[str] = (
 )
 
 
-def _decode_bytes(b: bytearray | bytes) -> str:
+def auto_decode(b: bytearray | bytes) -> str:
+    """Auto decode bytes."""
     encoding: str = "utf-8"
     startswith: Callable[[bytes | tuple[bytes, ...]], bool] = b.startswith
     if startswith((BOM_UTF32_BE, BOM_UTF32_LE)):
@@ -95,9 +97,14 @@ class JSONDecoder:
     """JSON decoder."""
 
     def __init__(
-        self, *, allow: _AllowList = NOTHING, use_decimal: bool = False,
+        self,
+        *,
+        allow: _AllowList = NOTHING,
+        decode: Callable[[bytearray | bytes], str] = auto_decode,
+        use_decimal: bool = False,
     ) -> None:
         """Create new JSON decoder."""
+        self._decode: Callable[[bytearray | bytes], str] = decode
         self._scanner: Callable[[str, str], tuple[Any]] = make_scanner(
             "comments" in allow, "duplicate_keys" in allow,
             "missing_commas" in allow, "nan_and_infinity" in allow,
@@ -118,7 +125,7 @@ class JSONDecoder:
             filename = realpath(filename)
 
         if not isinstance(s, str):
-            s = _decode_bytes(s)
+            s = self._decode(s)
         elif s.startswith("\ufeff"):
             msg: str = "Unexpected UTF-8 BOM"
             raise JSONSyntaxError(msg, filename, s, 0)
@@ -253,23 +260,25 @@ def load(
     fp: SupportsRead[bytes | str],
     *,
     allow: _AllowList = NOTHING,
+    decode: Callable[[bytearray | bytes], str] = auto_decode,
     filename: str = "<string>",
     use_decimal: bool = False,
 ) -> Any:
     """Deserialize a JSON file to a Python object."""
-    return JSONDecoder(allow=allow, use_decimal=use_decimal).load(
-        fp, filename=filename,
-    )
+    return JSONDecoder(
+        allow=allow, decode=decode, use_decimal=use_decimal,
+    ).load(fp, filename=filename)
 
 
 def loads(
     s: bytearray | bytes | str,
     *,
     allow: _AllowList = NOTHING,
+    decode: Callable[[bytearray | bytes], str] = auto_decode,
     filename: str = "<string>",
     use_decimal: bool = False,
 ) -> Any:
     """Deserialize a JSON string to a Python object."""
-    return JSONDecoder(allow=allow, use_decimal=use_decimal).loads(
-        s, filename=filename,
-    )
+    return JSONDecoder(
+        allow=allow, decode=decode, use_decimal=use_decimal,
+    ).loads(s, filename=filename)

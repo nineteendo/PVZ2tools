@@ -34,26 +34,34 @@ def _check_syntax_err(
     assert exc.end_colno == end_colno
 
 
-@pytest.mark.parametrize(("string", "expected"), [
+def test_utf8_bom(json: ModuleType) -> None:
+    """Test UTF-8 BOM."""
+    with pytest.raises(json.JSONSyntaxError) as exc_info:
+        json.loads("\ufeff0")
+
+    _check_syntax_err(exc_info, "Unexpected UTF-8 BOM", 1)
+
+
+@pytest.mark.parametrize(("s", "expected"), [
     ("true", True),
     ("false", False),
     ("null", None),
 ])
-def test_keywords(json: ModuleType, string: str, expected: Any) -> None:
+def test_keywords(json: ModuleType, s: str, expected: Any) -> None:
     """Test JSON keywords."""
-    assert json.loads(string) is expected
+    assert json.loads(s) is expected
 
 
-@pytest.mark.parametrize(("string", "expected"), [
+@pytest.mark.parametrize(("s", "expected"), [
     ("NaN", Decimal("NaN")),
     ("Infinity", Decimal("Infinity")),
     ("-Infinity", Decimal("-Infinity")),
 ])
 def test_nan_and_infinity_decimal(
-    json: ModuleType, string: str, expected: Any,
+    json: ModuleType, s: str, expected: Any,
 ) -> None:
     """Test NaN and infinity with decimal."""
-    obj: Any = json.loads(string, allow=NAN_AND_INFINITY, use_decimal=True)
+    obj: Any = json.loads(s, allow=NAN_AND_INFINITY, use_decimal=True)
     assert isinstance(obj, Decimal)
     if isnan(expected):
         assert isnan(obj)
@@ -61,16 +69,16 @@ def test_nan_and_infinity_decimal(
         assert obj == expected
 
 
-@pytest.mark.parametrize(("string", "expected"), [
+@pytest.mark.parametrize(("s", "expected"), [
     ("NaN", nan),
     ("Infinity", inf),
     ("-Infinity", -inf),
 ])
 def test_nan_and_infinity_float(
-    json: ModuleType, string: str, expected: Any,
+    json: ModuleType, s: str, expected: Any,
 ) -> None:
     """Test NaN and infinity with float."""
-    obj: Any = json.loads(string, allow=NAN_AND_INFINITY)
+    obj: Any = json.loads(s, allow=NAN_AND_INFINITY)
     assert isinstance(obj, float)
     if isnan(expected):
         assert isnan(obj)
@@ -78,16 +86,16 @@ def test_nan_and_infinity_float(
         assert obj == expected
 
 
-@pytest.mark.parametrize("string", ["NaN", "Infinity", "-Infinity"])
-def test_nan_and_infinity_not_allowed(json: ModuleType, string: str) -> None:
+@pytest.mark.parametrize("s", ["NaN", "Infinity", "-Infinity"])
+def test_nan_and_infinity_not_allowed(json: ModuleType, s: str) -> None:
     """Test NaN and infinity if not allowed."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
-        json.loads(string)
+        json.loads(s)
 
-    _check_syntax_err(exc_info, f"{string} is not allowed", 1, len(string) + 1)
+    _check_syntax_err(exc_info, f"{s} is not allowed", 1, len(s) + 1)
 
 
-@pytest.mark.parametrize(("string", "expected"), {
+@pytest.mark.parametrize(("s", "expected"), {
     # Sign
     ("-1", -1),
     ("1", 1),
@@ -150,36 +158,34 @@ def test_nan_and_infinity_not_allowed(json: ModuleType, string: str) -> None:
     ("-1.1", -1.1),
     ("-1.1e1", -11.0),
 })
-def test_number(json: ModuleType, string: str, expected: Any) -> None:
+def test_number(json: ModuleType, s: str, expected: Any) -> None:
     """Test JSON number."""
-    obj: Any = json.loads(string)
+    obj: Any = json.loads(s)
     assert isinstance(obj, type(expected))
     assert obj == expected
 
 
-@pytest.mark.parametrize(("string", "expected"), [
+@pytest.mark.parametrize(("s", "expected"), [
     ("1e400", Decimal("1E+400")),
     ("-1e400", Decimal("-1E+400")),
 ])
-def test_big_number_decimal(
-    json: ModuleType, string: str, expected: Any,
-) -> None:
+def test_big_number_decimal(json: ModuleType, s: str, expected: Any) -> None:
     """Test big JSON number with decimal."""
-    assert json.loads(string, use_decimal=True) == expected
+    assert json.loads(s, use_decimal=True) == expected
 
 
-@pytest.mark.parametrize("string", ["1e400", "-1e400"])
-def test_big_number_float(json: ModuleType, string: str) -> None:
+@pytest.mark.parametrize("s", ["1e400", "-1e400"])
+def test_big_number_float(json: ModuleType, s: str) -> None:
     """Test big JSON number with float."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
-        json.loads(string)
+        json.loads(s)
 
     _check_syntax_err(
-        exc_info, "Big numbers require decimal", 1, len(string) + 1,
+        exc_info, "Big numbers require decimal", 1, len(s) + 1,
     )
 
 
-@pytest.mark.parametrize(("string", "expected"), [
+@pytest.mark.parametrize(("s", "expected"), [
     # Empty string
     ('""', ""),
 
@@ -219,12 +225,12 @@ def test_big_number_float(json: ModuleType, string: str) -> None:
     (r'"foo\/bar"', "foo/bar"),
     (r'"\ud800\u0024"', "\ud800$"),
 ])
-def test_string(json: ModuleType, string: str, expected: Any) -> None:
+def test_string(json: ModuleType, s: str, expected: Any) -> None:
     """Test JSON string."""
-    assert json.loads(string) == expected
+    assert json.loads(s) == expected
 
 
-@pytest.mark.parametrize(("string", "msg", "colno", "end_colno"), [
+@pytest.mark.parametrize(("s", "msg", "colno", "end_colno"), [
     ('"foo', "Unterminated string", 1, 5),
     ('"foo\n', "Unterminated string", 1, 5),
     ('"\b"', "Unescaped control character", 2, -1),
@@ -239,16 +245,16 @@ def test_string(json: ModuleType, string: str, expected: Any) -> None:
     (r'"\ud800\u????"', "Expecting 4 hex digits", 10, 14),
 ])
 def test_invalid_string(
-    json: ModuleType, string: str, msg: str, colno: int, end_colno: int,
+    json: ModuleType, s: str, msg: str, colno: int, end_colno: int,
 ) -> None:
     """Test invalid JSON string."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
-        json.loads(string)
+        json.loads(s)
 
     _check_syntax_err(exc_info, msg, colno, end_colno)
 
 
-@pytest.mark.parametrize(("string", "expected"), [
+@pytest.mark.parametrize(("s", "expected"), [
     # Empty array
     ("[]", []),
 
@@ -265,12 +271,12 @@ def test_invalid_string(
     # Multiple values
     ("[1, 2, 3]", [1, 2, 3]),
 ])  # type: ignore
-def test_array(json: ModuleType, string: str, expected: Any) -> None:
+def test_array(json: ModuleType, s: str, expected: Any) -> None:
     """Test JSON array."""
-    assert json.loads(string) == expected
+    assert json.loads(s) == expected
 
 
-@pytest.mark.parametrize(("string", "expected"), [
+@pytest.mark.parametrize(("s", "expected"), [
     # In empty array
     ("[ ]", []),
 
@@ -286,14 +292,12 @@ def test_array(json: ModuleType, string: str, expected: Any) -> None:
     # After last element
     ("[1,2,3 ]", [1, 2, 3]),
 ])
-def test_array_whitespace(
-    json: ModuleType, string: str, expected: Any,
-) -> None:
+def test_array_whitespace(json: ModuleType, s: str, expected: Any) -> None:
     """Test whitespace in JSON array."""
-    assert json.loads(string) == expected
+    assert json.loads(s) == expected
 
 
-@pytest.mark.parametrize(("string", "expected"), [
+@pytest.mark.parametrize(("s", "expected"), [
     # In empty array
     ("[/**/]", []),
 
@@ -309,12 +313,12 @@ def test_array_whitespace(
     # After last element
     ("[1,2,3/**/]", [1, 2, 3]),
 ])
-def test_array_comments(json: ModuleType, string: str, expected: Any) -> None:
+def test_array_comments(json: ModuleType, s: str, expected: Any) -> None:
     """Test comments in JSON array."""
-    assert json.loads(string, allow=COMMENTS) == expected
+    assert json.loads(s, allow=COMMENTS) == expected
 
 
-@pytest.mark.parametrize(("string", "msg", "colno", "end_colno"), [
+@pytest.mark.parametrize(("s", "msg", "colno", "end_colno"), [
     ("[", "Unterminated array", 1, 2),
     ("[0", "Unterminated array", 1, 3),
     ("[1-2-3]", "Expecting comma", 3, -1),
@@ -323,16 +327,16 @@ def test_array_comments(json: ModuleType, string: str, expected: Any) -> None:
     ("[0,]", "Trailing comma is not allowed", 3, -1),
 ])
 def test_invalid_array(
-    json: ModuleType, string: str, msg: str, colno: int, end_colno: int,
+    json: ModuleType, s: str, msg: str, colno: int, end_colno: int,
 ) -> None:
     """Test invalid JSON array."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
-        json.loads(string)
+        json.loads(s)
 
     _check_syntax_err(exc_info, msg, colno, end_colno)
 
 
-@pytest.mark.parametrize(("string", "expected"), [
+@pytest.mark.parametrize(("s", "expected"), [
     # Empty object
     ("{}", {}),
 
@@ -349,12 +353,12 @@ def test_invalid_array(
     # Multiple values
     ('{"a": 0, "b": 0, "c": 0}', {"a": 0, "b": 0, "c": 0}),
 ])  # type: ignore
-def test_object(json: ModuleType, string: str, expected: Any) -> None:
+def test_object(json: ModuleType, s: str, expected: Any) -> None:
     """Test JSON object."""
-    assert json.loads(string) == expected
+    assert json.loads(s) == expected
 
 
-@pytest.mark.parametrize(("string", "expected"), [
+@pytest.mark.parametrize(("s", "expected"), [
     # In empty object
     ("{ }", {}),
 
@@ -376,14 +380,12 @@ def test_object(json: ModuleType, string: str, expected: Any) -> None:
     # After last element
     ('{"a":0,"b":0,"c":0 }', {"a": 0, "b": 0, "c": 0}),
 ])
-def test_object_whitespace(
-    json: ModuleType, string: str, expected: Any,
-) -> None:
+def test_object_whitespace(json: ModuleType, s: str, expected: Any) -> None:
     """Test whitespace in JSON object."""
-    assert json.loads(string) == expected
+    assert json.loads(s) == expected
 
 
-@pytest.mark.parametrize(("string", "expected"), [
+@pytest.mark.parametrize(("s", "expected"), [
     # In empty object
     ("{/**/}", {}),
 
@@ -405,12 +407,12 @@ def test_object_whitespace(
     # After last element
     ('{"a":0,"b":0,"c":0/**/}', {"a": 0, "b": 0, "c": 0}),
 ])
-def test_object_comments(json: ModuleType, string: str, expected: Any) -> None:
+def test_object_comments(json: ModuleType, s: str, expected: Any) -> None:
     """Test comments in JSON object."""
-    assert json.loads(string, allow=COMMENTS) == expected
+    assert json.loads(s, allow=COMMENTS) == expected
 
 
-@pytest.mark.parametrize(("string", "msg", "colno", "end_colno"), [
+@pytest.mark.parametrize(("s", "msg", "colno", "end_colno"), [
     ("{", "Unterminated object", 1, 2),
     ("{0: 0}", "Expecting string", 2, -1),
     ('{"a": 1, "a": 2, "a": 3}', "Duplicate keys are not allowed", 10, 13),
@@ -423,11 +425,11 @@ def test_object_comments(json: ModuleType, string: str, expected: Any) -> None:
     ('{"a": 0,}', "Trailing comma is not allowed", 8, -1),
 ])
 def test_invalid_object(
-    json: ModuleType, string: str, msg: str, colno: int, end_colno: int,
+    json: ModuleType, s: str, msg: str, colno: int, end_colno: int,
 ) -> None:
     """Test invalid JSON object."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
-        json.loads(string)
+        json.loads(s)
 
     _check_syntax_err(exc_info, msg, colno, end_colno)
 
@@ -448,58 +450,58 @@ def test_reuse_keys(json: ModuleType) -> None:
     assert len(ids) == 1
 
 
-@pytest.mark.parametrize(("string", "expected"), [
+@pytest.mark.parametrize(("s", "expected"), [
     ("[1 2 3]", [1, 2, 3]),
     ('{"a": 0 "b": 0 "c": 0}', {"a": 0, "b": 0, "c": 0}),
 ])
-def test_missing_commas(json: ModuleType, string: str, expected: Any) -> None:
+def test_missing_commas(json: ModuleType, s: str, expected: Any) -> None:
     """Test missing comma's."""
-    assert json.loads(string, allow=MISSING_COMMAS) == expected
+    assert json.loads(s, allow=MISSING_COMMAS) == expected
 
 
-@pytest.mark.parametrize(("string", "expected"), [
+@pytest.mark.parametrize(("s", "expected"), [
     ("[0,]", [0]),
     ('{"a": 0,}', {"a": 0}),
 ])
-def test_trailing_comma(json: ModuleType, string: str, expected: Any) -> None:
+def test_trailing_comma(json: ModuleType, s: str, expected: Any) -> None:
     """Test trailing comma."""
-    assert json.loads(string, allow=TRAILING_COMMA) == expected
+    assert json.loads(s, allow=TRAILING_COMMA) == expected
 
 
-@pytest.mark.parametrize("string", [
+@pytest.mark.parametrize("s", [
     # Before value
     " 0",
 
     # After value
     "0 ",
 ])
-def test_value_whitespace(json: ModuleType, string: str) -> None:
+def test_value_whitespace(json: ModuleType, s: str) -> None:
     """Test whitespace around JSON value."""
-    assert json.loads(string) == 0
+    assert json.loads(s) == 0
 
 
-@pytest.mark.parametrize("string", [
+@pytest.mark.parametrize("s", [
     # Before value
     "/**/0",
 
     # After value
     "0/**/",
 ])
-def test_value_comments(json: ModuleType, string: str) -> None:
+def test_value_comments(json: ModuleType, s: str) -> None:
     """Test comments around JSON value."""
-    assert json.loads(string, allow=COMMENTS) == 0
+    assert json.loads(s, allow=COMMENTS) == 0
 
 
-@pytest.mark.parametrize("string", ["", "-", "foo"])
-def test_invalid_value(json: ModuleType, string: str) -> None:
+@pytest.mark.parametrize("s", ["", "-", "foo"])
+def test_invalid_value(json: ModuleType, s: str) -> None:
     """Test invalid JSON value."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
-        json.loads(string)
+        json.loads(s)
 
     _check_syntax_err(exc_info, "Expecting value", 1)
 
 
-@pytest.mark.parametrize("string", [
+@pytest.mark.parametrize("s", [
     # One character
     "0 ",
     "0\t",
@@ -509,12 +511,12 @@ def test_invalid_value(json: ModuleType, string: str) -> None:
     # Multiple characters
     "0   ",
 ])
-def test_whitespace(json: ModuleType, string: str) -> None:
+def test_whitespace(json: ModuleType, s: str) -> None:
     """Test whitespace."""
-    assert json.loads(string) == 0
+    assert json.loads(s) == 0
 
 
-@pytest.mark.parametrize("string", [
+@pytest.mark.parametrize("s", [
     # One comment
     "0//line comment",
     "0/*block comment*/",
@@ -527,9 +529,9 @@ def test_whitespace(json: ModuleType, string: str) -> None:
     "0 //comment 1\n //comment 2\n //comment 3\n ",
     "0 /*comment 1*/ /*comment 2*/ /*comment 3*/ ",
 ])
-def test_comments(json: ModuleType, string: str) -> None:
+def test_comments(json: ModuleType, s: str) -> None:
     """Test comments."""
-    assert json.loads(string, allow=COMMENTS) == 0
+    assert json.loads(s, allow=COMMENTS) == 0
 
 
 def test_invalid_comment(json: ModuleType) -> None:
@@ -540,17 +542,17 @@ def test_invalid_comment(json: ModuleType) -> None:
     _check_syntax_err(exc_info, "Unterminated comment", 2, 24)
 
 
-@pytest.mark.parametrize("string", [
+@pytest.mark.parametrize("s", [
     "0//line comment",
     "0/*block comment*/",
     "0/*unterminated comment",
 ])
-def test_comments_not_allowed(json: ModuleType, string: str) -> None:
+def test_comments_not_allowed(json: ModuleType, s: str) -> None:
     """Test comments if not allowed."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
-        json.loads(string)
+        json.loads(s)
 
-    _check_syntax_err(exc_info, "Comments are not allowed", 2, len(string) + 1)
+    _check_syntax_err(exc_info, "Comments are not allowed", 2, len(s) + 1)
 
 
 def test_end_of_file(json: ModuleType) -> None:
