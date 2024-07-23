@@ -10,9 +10,8 @@ from argparse import ArgumentParser
 from pathlib import Path
 from sys import stdin
 
-from jsonyx import (
-    EVERYTHING, NOTHING, JSONSyntaxError, dumps, format_syntax_error, loads,
-)
+from jsonyx import JSONSyntaxError, dumps, format_syntax_error, loads
+from jsonyx.allow import EVERYTHING, NOTHING
 from typing_extensions import Any  # type: ignore
 
 
@@ -23,6 +22,7 @@ class JSONNamespace:  # pylint: disable=R0903
     ensure_ascii: bool
     indent: int | str | None
     filename: str | None
+    no_commas: bool
     nonstrict: bool
     sort_keys: bool
     use_decimal: bool
@@ -38,6 +38,7 @@ def register(parser: ArgumentParser) -> None:
     group.add_argument(
         "--indent-tab", action="store_const", const="\t", dest="indent",
     )
+    parser.add_argument("--no-commas", action="store_true")
     parser.add_argument("--nonstrict", action="store_true")
     parser.add_argument("--sort-keys", action="store_true")
     parser.add_argument("--use-decimal", action="store_true")
@@ -69,7 +70,9 @@ def run(args: JSONNamespace) -> None:
         allow=EVERYTHING if args.nonstrict else NOTHING,
         ensure_ascii=args.ensure_ascii,
         indent=args.indent,
-        item_separator="," if args.compact else ", ",
+        item_separator=" " if args.no_commas else (
+            "," if args.compact else ", "
+        ),
         key_separator=":" if args.compact else ": ",
         sort_keys=args.sort_keys,
     ))

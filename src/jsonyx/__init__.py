@@ -3,16 +3,9 @@
 from __future__ import annotations
 
 __all__: list[str] = [
-    "COMMENTS",
-    "DUPLICATE_KEYS",
-    "EVERYTHING",
-    "MISSING_COMMAS",
-    "NAN_AND_INFINITY",
-    "NOTHING",
-    "TRAILING_COMMA",
+    "Decoder",
     "DuplicateKey",
-    "JSONDecoder",
-    "JSONEncoder",
+    "Encoder",
     "JSONSyntaxError",
     "auto_decode",
     "dump",
@@ -32,6 +25,7 @@ from typing import TYPE_CHECKING
 
 from jsonyx._decoder import DuplicateKey, JSONSyntaxError, make_scanner
 from jsonyx._encoder import make_writer
+from jsonyx.allow import NOTHING
 from typing_extensions import Any, Literal  # type: ignore
 
 if TYPE_CHECKING:
@@ -49,17 +43,6 @@ try:
     from jsonyx._speedups import make_encoder
 except ImportError:
     make_encoder = None
-
-NOTHING: frozenset[str] = frozenset()
-COMMENTS: frozenset[str] = frozenset({"comments"})
-DUPLICATE_KEYS: frozenset[str] = frozenset({"duplicate_keys"})
-MISSING_COMMAS: frozenset[str] = frozenset({"missing_commas"})
-NAN_AND_INFINITY: frozenset[str] = frozenset({"nan_and_infinity"})
-TRAILING_COMMA: frozenset[str] = frozenset({"trailing_comma"})
-EVERYTHING: frozenset[str] = (
-    COMMENTS | DUPLICATE_KEYS | MISSING_COMMAS | NAN_AND_INFINITY
-    | TRAILING_COMMA
-)
 
 
 def auto_decode(b: bytearray | bytes) -> str:
@@ -93,7 +76,7 @@ def auto_decode(b: bytearray | bytes) -> str:
     return b.decode(encoding, "surrogatepass")
 
 
-class JSONDecoder:
+class Decoder:
     """JSON decoder."""
 
     def __init__(
@@ -133,7 +116,7 @@ class JSONDecoder:
         return self._scanner(filename, s)
 
 
-class JSONEncoder:
+class Encoder:
     """JSON encoder."""
 
     # pylint: disable-next=R0913
@@ -225,7 +208,7 @@ def dump(  # noqa: PLR0913
     key_separator: str = ": ",
 ) -> None:
     """Serialize a Python object to a JSON file."""
-    JSONEncoder(
+    Encoder(
         allow=allow,
         ensure_ascii=ensure_ascii,
         indent=indent,
@@ -246,7 +229,7 @@ def dumps(  # noqa: PLR0913
     sort_keys: bool = False,
 ) -> str:
     """Serialize a Python object to a JSON string."""
-    return JSONEncoder(
+    return Encoder(
         allow=allow,
         ensure_ascii=ensure_ascii,
         indent=indent,
@@ -265,9 +248,9 @@ def load(
     use_decimal: bool = False,
 ) -> Any:
     """Deserialize a JSON file to a Python object."""
-    return JSONDecoder(
-        allow=allow, decode=decode, use_decimal=use_decimal,
-    ).load(fp, filename=filename)
+    return Decoder(allow=allow, decode=decode, use_decimal=use_decimal).load(
+        fp, filename=filename,
+    )
 
 
 def loads(
@@ -279,6 +262,6 @@ def loads(
     use_decimal: bool = False,
 ) -> Any:
     """Deserialize a JSON string to a Python object."""
-    return JSONDecoder(
-        allow=allow, decode=decode, use_decimal=use_decimal,
-    ).loads(s, filename=filename)
+    return Decoder(allow=allow, decode=decode, use_decimal=use_decimal).loads(
+        s, filename=filename,
+    )

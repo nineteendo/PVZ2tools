@@ -1,4 +1,4 @@
-/* JSON accelerator C extensor: _jsonyx module. */
+/* JSON speedups */
 
 #include <Python.h>
 #include <structmember.h>

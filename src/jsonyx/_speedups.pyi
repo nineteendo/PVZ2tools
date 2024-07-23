@@ -1,5 +1,5 @@
 # Copyright (C) 2024 Nice Zombies
-"""JSON accelerator."""
+"""JSON speedups."""
 __all__: list[str] = [
     "DuplicateKey",
     "encode_basestring",

@@ -1,6 +1,6 @@
 # Copyright (C) 2024 Nice Zombies
 # TODO(Nice Zombies): replace with jsonyx._speedups.c
-"""JSON accelerator."""
+"""JSON speedups."""
 from __future__ import annotations
 
 __all__: list[str] = [

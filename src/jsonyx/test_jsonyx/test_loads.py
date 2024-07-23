@@ -9,7 +9,7 @@ from math import inf, isnan, nan
 from typing import TYPE_CHECKING
 
 import pytest
-from jsonyx import (
+from jsonyx.allow import (
     COMMENTS, DUPLICATE_KEYS, MISSING_COMMAS, NAN_AND_INFINITY, TRAILING_COMMA,
 )
 # pylint: disable-next=W0611

@@ -1,6 +1,6 @@
 # Copyright (C) 2024 Nice Zombies
-# TODO(Nice Zombies): test jsonyx.JSONDecoder
-# TODO(Nice Zombies): test jsonyx.JSONEncoder
+# TODO(Nice Zombies): test jsonyx.Decoder
+# TODO(Nice Zombies): test jsonyx.Encoder
 # TODO(Nice Zombies): test jsonyx.JSONSyntaxError
 # TODO(Nice Zombies): test jsonyx.dump
 # TODO(Nice Zombies): test jsonyx.dumps
