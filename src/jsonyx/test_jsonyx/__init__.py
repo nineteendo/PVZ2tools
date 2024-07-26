@@ -15,7 +15,7 @@ from test.support.import_helper import import_fresh_module  # type: ignore
 from typing import TYPE_CHECKING
 
 import pytest
-from jsonyx import JSONSyntaxError, auto_decode
+from jsonyx import JSONSyntaxError, detect_encoding
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -48,20 +48,52 @@ def test_duplicate_key(json: ModuleType) -> None:
     assert hash(string) == id(string)
 
 
-@pytest.mark.parametrize("s", [
-    "30",  # UTF-8
-    "0030",  # UTF-16 (BE)
-    "3000",  # UTF-16 (LE)
-    "00000030",  # UTF-32 (BE)
-    "30000000",  # UTF-32 (LE)
+@pytest.mark.parametrize(("s", "encoding"), [
+    # JSON must start with ASCII character (not NULL)
+    # Strings can't contain control characters (including NULL)
 
-    # Byte order marks
-    "ef bb bf 30",  # UTF-8
-    "feff 0030",  # UTF-16 (BE)
-    "fffe 3000",  # UTF-16 (LE)
-    "0000feff 00000030",  # UTF-32 (BE)
-    "fffe0000 30000000",  # UTF-32 (LE)
+    # utf-8
+    ("", "utf-8"),  # Empty JSON (prefer utf-8)
+    ("XX", "utf-8"),  # 1 ASCII character
+    ("XX XX", "utf-8"),  # 2 ASCII characters
+    ("XX XX XX", "utf-8"),  # 3 ASCII characters
+    ("XX XX XX XX", "utf-8"),  # 4 ASCII characters
+
+    # utf-8-sig
+    ("ef bb bf", "utf-8-sig"),  # Empty JSON with BOM
+    ("ef bb bf XX", "utf-8-sig"),  # BOM + 1 ASCII character
+
+    # utf-16-be
+    ("00 XX", "utf-16-be"),  # 1 ASCII character (BE)
+    ("00 XX 00 XX", "utf-16-be"),  # 2 ASCII characters (BE)
+    ("00 XX XX 00", "utf-16-be"),  # 1 ASCII + 1 Unicode character (BE)
+    ("00 XX XX XX", "utf-16-be"),  # 1 ASCII + 1 Unicode character (BE)
+
+    # utf-16-le
+    ("XX 00", "utf-16-le"),  # 1 ASCII character (LE)
+    ("XX 00 00 XX", "utf-16-le"),  # 1 ASCII + 1 Unicode character (LE)
+    ("XX 00 XX 00", "utf-16-le"),  # 2 ASCII characters (LE)
+    ("XX 00 XX XX", "utf-16-le"),  # 1 ASCII + 1 Unicode character (LE)
+
+    # utf-16
+    ("fe ff", "utf-16"),  # Empty JSON with BOM (BE)
+    ("fe ff 00 XX", "utf-16"),  # BOM + 1 ASCII character (BE)
+    ("ff fe", "utf-16"),  # Empty JSON with BOM (LE)
+    ("ff fe XX 00", "utf-16"),  # BOM + 1 ASCII character (LE)
+
+    # utf-32-be
+    ("00 00 00 XX", "utf-32-be"),  # 1 ASCII character (BE)
+
+    # utf-32-le
+    ("XX 00 00 00", "utf-32-le"),  # 1 ASCII character (LE)
+
+    # utf-32
+    ("00 00 fe ff", "utf-32"),  # Empty JSON with BOM (BE)
+    ("00 00 fe ff 00 00 00 XX", "utf-32"),  # BOM + 1 ASCII character (BE)
+    ("ff fe 00 00", "utf-32"),  # Empty JSON with BOM (LE)
+    ("ff fe 00 00 XX 00 00 00", "utf-32"),  # BOM + 1 ASCII character (LE)
 ])
-def test_auto_decode(s: str) -> None:
-    """Test auto_decode."""
-    assert auto_decode(bytes.fromhex(s)) == "0"
+def test_detect_encoding(s: str, encoding: str) -> None:
+    """Test detect JSON encoding."""
+    b: bytes = bytes.fromhex(s.replace("XX", "01"))
+    assert detect_encoding(b) == encoding

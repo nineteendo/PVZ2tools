@@ -6,6 +6,7 @@ __all__: list[str] = ["make_writer"]
 
 import re
 from decimal import Decimal
+from functools import partial
 from math import inf
 from re import Match, Pattern
 from typing import TYPE_CHECKING
@@ -33,11 +34,13 @@ _ESCAPE_DCT: dict[str, str] = {chr(i): f"\\u{i:04x}" for i in range(0x20)} | {
 try:
     from jsonyx._speedups import encode_basestring, encode_basestring_ascii
 except ImportError:
-    def encode_basestring(s: str) -> str:
+    def encode_basestring(s: str, /) -> str:
         """Return the JSON representation of a Python string."""
         return f'"{_ESCAPE.sub(lambda match: _ESCAPE_DCT[match.group()], s)}"'
 
-    def encode_basestring_ascii(s: str) -> str:
+    def encode_basestring_ascii(
+        allow_surrogates: bool, s: str, /,  # noqa: FBT001
+    ) -> str:
         """Return the ASCII-only JSON representation of a Python string."""
         def replace(match: Match[str]) -> str:
             s: str = match.group()
@@ -45,18 +48,18 @@ except ImportError:
                 return _ESCAPE_DCT[s]
             except KeyError:
                 uni: int = ord(s)
-                if 0xd800 <= uni <= 0xdfff:
-                    msg: str = f"Surrogate {s!r} can not be escaped"
+                if uni >= 0x10000:
+                    # surrogate pair
+                    uni -= 0x10000
+                    uni1: int = 0xd800 | ((uni >> 10) & 0x3ff)
+                    uni2: int = 0xdc00 | (uni & 0x3ff)
+                    return f"\\u{uni1:04x}\\u{uni2:04x}"
+
+                if 0xd800 <= uni <= 0xdfff and not allow_surrogates:
+                    msg: str = "Surrogates are not allowed"
                     raise ValueError(msg) from None
 
-                if uni < 0x10000:
-                    return f"\\u{uni:04x}"
-
-                # surrogate pair
-                uni -= 0x10000
-                uni1: int = 0xd800 | ((uni >> 10) & 0x3ff)
-                uni2: int = 0xdc00 | (uni & 0x3ff)
-                return f"\\u{uni1:04x}\\u{uni2:04x}"
+                return f"\\u{uni:04x}"
 
         return f'"{_ESCAPE_ASCII.sub(replace, s)}"'
 
@@ -65,17 +68,18 @@ except ImportError:
 def make_writer(  # noqa: C901, PLR0915, PLR0917, PLR0913
     encode_decimal: Callable[[Decimal], str],
     indent: str | None,
-    key_separator: str,
     item_separator: str,
-    sort_keys: bool,  # noqa: FBT001
+    key_separator: str,
     allow_nan_and_infinity: bool,  # noqa: FBT001
+    allow_surrogates: bool,  # noqa: FBT001
     ensure_ascii: bool,  # noqa: FBT001
+    sort_keys: bool,  # noqa: FBT001
 ) -> Callable[[Any, SupportsWrite[str]], None]:
     """Make JSON interencode."""
-    if ensure_ascii:
-        encode_string: Callable[[str], str] = encode_basestring_ascii
+    if not ensure_ascii:
+        encode_string: Callable[[str], str] = encode_basestring
     else:
-        encode_string = encode_basestring
+        encode_string = partial(encode_basestring_ascii, allow_surrogates)
 
     float_repr: Callable[[float], str] = float.__repr__
     int_repr: Callable[[int], str] = int.__repr__

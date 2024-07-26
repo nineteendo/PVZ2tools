@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 from jsonyx.allow import (
-    COMMENTS, DUPLICATE_KEYS, MISSING_COMMAS, NAN_AND_INFINITY, TRAILING_COMMA,
+    COMMENTS, DUPLICATE_KEYS, MISSING_COMMAS, NAN_AND_INFINITY, SURROGATES,
+    TRAILING_COMMA,
 )
 # pylint: disable-next=W0611
 from jsonyx.test_jsonyx import get_json  # type: ignore # noqa: F401
@@ -216,14 +217,12 @@ def test_big_number_float(json: ModuleType, s: str) -> None:
     (r'"\u0939"', "\u0939"),
     (r'"\u20ac"', "\u20ac"),
     (r'"\ud55c"', "\ud55c"),
-    (r'"\ud800"', "\ud800"),
     (r'"\ud800\udf48"', "\U00010348"),
     (r'"\udbe5\udeb3"', "\U001096b3"),
 
     # Multiple characters
     ('"foo"', "foo"),
     (r'"foo\/bar"', "foo/bar"),
-    (r'"\ud800\u0024"', "\ud800$"),
 ])
 def test_string(json: ModuleType, s: str, expected: Any) -> None:
     """Test JSON string."""
@@ -240,9 +239,12 @@ def test_string(json: ModuleType, s: str, expected: Any) -> None:
     (r'"\u"', "Expecting 4 hex digits", 4, 8),
     (r'"\u0xff"', "Expecting 4 hex digits", 4, 8),
     (r'"\u????"', "Expecting 4 hex digits", 4, 8),
+    (r'"\ud800"', "Surrogates are not allowed", 2, 8),
     (r'"\ud800\u"', "Expecting 4 hex digits", 10, 14),
     (r'"\ud800\u0xff"', "Expecting 4 hex digits", 10, 14),
     (r'"\ud800\u????"', "Expecting 4 hex digits", 10, 14),
+    (r'"\ud800\u0024"', "Surrogates are not allowed", 2, 8),
+    (r'"\udf48"', "Surrogates are not allowed", 2, 8),
 ])
 def test_invalid_string(
     json: ModuleType, s: str, msg: str, colno: int, end_colno: int,
@@ -252,6 +254,16 @@ def test_invalid_string(
         json.loads(s)
 
     _check_syntax_err(exc_info, msg, colno, end_colno)
+
+
+@pytest.mark.parametrize(("s", "expected"), [
+    (r'"\ud800"', "\ud800"),
+    (r'"\ud800\u0024"', "\ud800$"),
+    (r'"\udf48"', "\udf48"),
+])
+def test_surrogates(json: ModuleType, s: str, expected: Any) -> None:
+    """Test surrogates."""
+    assert json.loads(s, allow=SURROGATES) == expected
 
 
 @pytest.mark.parametrize(("s", "expected"), [

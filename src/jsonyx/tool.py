@@ -11,7 +11,7 @@ from pathlib import Path
 from sys import stdin
 
 from jsonyx import JSONSyntaxError, dumps, format_syntax_error, loads
-from jsonyx.allow import EVERYTHING, NOTHING
+from jsonyx.allow import EVERYTHING, NOTHING, SURROGATES
 from typing_extensions import Any  # type: ignore
 
 
@@ -58,7 +58,7 @@ def run(args: JSONNamespace) -> None:
     try:
         obj: Any = loads(
             s,
-            allow=EVERYTHING if args.nonstrict else NOTHING,
+            allow=EVERYTHING - SURROGATES if args.nonstrict else NOTHING,
             filename=filename,
             use_decimal=args.use_decimal,
         )
@@ -67,7 +67,7 @@ def run(args: JSONNamespace) -> None:
 
     print(dumps(
         obj,
-        allow=EVERYTHING if args.nonstrict else NOTHING,
+        allow=EVERYTHING - SURROGATES if args.nonstrict else NOTHING,
         ensure_ascii=args.ensure_ascii,
         indent=args.indent,
         item_separator=" " if args.no_commas else (

@@ -79,73 +79,6 @@ def _unescape_unicode(filename: str, s: str, end: int) -> int:
     raise _errmsg(msg, filename, s, end, end + 4)
 
 
-# pylint: disable-next=R0912
-def _scan_string(  # noqa: C901, PLR0912
-    filename: str, s: str, end: int,
-) -> tuple[str, int]:
-    chunks: list[str] = []
-    append_chunk: Callable[[str], None] = chunks.append
-    str_idx: int = end - 1
-    while True:
-        # Match one or more unescaped string characters
-        if match := _match_chunk(s, end):
-            end = match.end()
-            append_chunk(match.group())
-
-        # Terminator is the end of string, a literal control character,
-        # or a backslash denoting that an escape sequence follows
-        try:
-            terminator: str = s[end]
-        except IndexError:
-            msg: str = "Unterminated string"
-            raise _errmsg(msg, filename, s, str_idx, end) from None
-
-        if terminator == '"':
-            return "".join(chunks), end + 1
-
-        if terminator != "\\":
-            if terminator == "\n":
-                msg = "Unterminated string"
-                raise _errmsg(msg, filename, s, str_idx, end)
-
-            msg = "Unescaped control character"
-            raise _errmsg(msg, filename, s, end)
-
-        end += 1
-        try:
-            esc = s[end]
-        except IndexError:
-            msg = "Expecting escaped character"
-            raise _errmsg(msg, filename, s, end) from None
-
-        # If not a unicode escape sequence, must be in the lookup table
-        if esc != "u":
-            try:
-                char = _UNESCAPE[esc]
-            except KeyError:
-                if esc == "\n":
-                    msg = "Expecting escaped character"
-                    raise _errmsg(msg, filename, s, end) from None
-
-                msg = "Invalid backslash escape"
-                raise _errmsg(msg, filename, s, end - 1, end + 1) from None
-
-            end += 1
-        else:
-            uni: int = _unescape_unicode(filename, s, end + 1)
-            end += 5
-            if 0xd800 <= uni <= 0xdbff and s[end:end + 2] == r"\u":
-                uni2: int = _unescape_unicode(filename, s, end + 2)
-                if 0xdc00 <= uni2 <= 0xdfff:
-                    uni = ((uni - 0xd800) << 10) | (uni2 - 0xdc00)
-                    uni += 0x10000
-                    end += 6
-
-            char = chr(uni)
-
-        append_chunk(char)
-
-
 try:
     from jsonyx._speedups import DuplicateKey  # type: ignore
 except ImportError:
@@ -188,15 +121,16 @@ class JSONSyntaxError(SyntaxError):
 _errmsg: type[JSONSyntaxError] = JSONSyntaxError
 
 
-try:
+try:  # noqa: PLR1702
     from jsonyx._speedups import make_scanner
 except ImportError:
-    # pylint: disable-next=R0915, R0913
+    # pylint: disable-next=R0915, R0913, R0914
     def make_scanner(  # noqa: C901, PLR0915, PLR0917, PLR0913
         allow_comments: bool,  # noqa: FBT001
         allow_duplicate_keys: bool,  # noqa: FBT001
         allow_missing_commas: bool,  # noqa: FBT001
         allow_nan_and_infinity: bool,  # noqa: FBT001
+        allow_surrogates: bool,  # noqa: FBT001
         allow_trailing_comma: bool,  # noqa: FBT001
         use_decimal: bool,  # noqa: FBT001
     ) -> Callable[[str, str], Any]:
@@ -211,6 +145,7 @@ except ImportError:
                 if match := _match_whitespace(s, end):
                     end = match.end()
 
+                # TODO(Nice Zombies): raise error for control characters
                 comment_idx: int = end
                 if (comment_prefix := s[end:end + 2]) == "//":
                     if (end := find("\n", end + 2)) != -1:
@@ -234,6 +169,84 @@ except ImportError:
                     msg = "Comments are not allowed"
                     raise _errmsg(msg, filename, s, comment_idx, end)
 
+        # pylint: disable-next=R0912, R0915
+        def scan_string(  # noqa: C901, PLR0912, PLR0915
+            filename: str, s: str, end: int,
+        ) -> tuple[str, int]:
+            chunks: list[str] = []
+            append_chunk: Callable[[str], None] = chunks.append
+            str_idx: int = end - 1
+            while True:
+                # Match one or more unescaped string characters
+                if match := _match_chunk(s, end):
+                    end = match.end()
+                    append_chunk(match.group())
+
+                # Terminator is the end of string, a literal control character,
+                # or a backslash denoting that an escape sequence follows
+                try:
+                    terminator: str = s[end]
+                except IndexError:
+                    msg: str = "Unterminated string"
+                    raise _errmsg(msg, filename, s, str_idx, end) from None
+
+                if terminator == '"':
+                    return "".join(chunks), end + 1
+
+                if terminator != "\\":
+                    if terminator == "\n":
+                        msg = "Unterminated string"
+                        raise _errmsg(msg, filename, s, str_idx, end)
+
+                    msg = "Unescaped control character"
+                    raise _errmsg(msg, filename, s, end)
+
+                end += 1
+                try:
+                    esc = s[end]
+                except IndexError:
+                    msg = "Expecting escaped character"
+                    raise _errmsg(msg, filename, s, end) from None
+
+                # If not a unicode escape sequence, must be in the lookup table
+                if esc != "u":
+                    try:
+                        char = _UNESCAPE[esc]
+                    except KeyError:
+                        if esc == "\n":
+                            msg = "Expecting escaped character"
+                            raise _errmsg(msg, filename, s, end) from None
+
+                        msg = "Invalid backslash escape"
+                        raise _errmsg(
+                            msg, filename, s, end - 1, end + 1,
+                        ) from None
+
+                    end += 1
+                else:
+                    uni: int = _unescape_unicode(filename, s, end + 1)
+                    end += 5
+                    if 0xd800 <= uni <= 0xdbff:
+                        if s[end:end + 2] == r"\u":
+                            uni2: int = _unescape_unicode(filename, s, end + 2)
+                            if 0xdc00 <= uni2 <= 0xdfff:
+                                uni = ((uni - 0xd800) << 10) | (uni2 - 0xdc00)
+                                uni += 0x10000
+                                end += 6
+                            elif not allow_surrogates:
+                                msg = "Surrogates are not allowed"
+                                raise _errmsg(msg, filename, s, end - 6, end)
+                        elif not allow_surrogates:
+                            msg = "Surrogates are not allowed"
+                            raise _errmsg(msg, filename, s, end - 6, end)
+                    elif 0xdc00 <= uni <= 0xdfff and not allow_surrogates:
+                        msg = "Surrogates are not allowed"
+                        raise _errmsg(msg, filename, s, end - 6, end)
+
+                    char = chr(uni)
+
+                append_chunk(char)
+
         # pylint: disable-next=R0913, R0912, R0915
         def scan_object(  # noqa: C901, PLR0912, PLR0915
             filename: str, s: str, end: int,
@@ -256,7 +269,7 @@ except ImportError:
             result: dict[str, Any] = {}
             while True:
                 key_idx: int = end
-                key, end = _scan_string(filename, s, end + 1)
+                key, end = scan_string(filename, s, end + 1)
                 if key not in result:
                     # Reduce memory consumption
                     key = memoize(key, key)
@@ -375,7 +388,7 @@ except ImportError:
 
             result: Any
             if nextchar == '"':
-                result, end = _scan_string(filename, s, idx + 1)
+                result, end = scan_string(filename, s, idx + 1)
             elif nextchar == "{":
                 result, end = scan_object(filename, s, idx + 1)
             elif nextchar == "[":
@@ -390,6 +403,8 @@ except ImportError:
                 integer, frac, exp = number.groups()
                 end = number.end()
                 if frac or exp:
+                    # TODO(Nice Zombies): catch decimal.InvalidOperation
+                    # ArithmeticError in C
                     result = parse_float(integer + (frac or "") + (exp or ""))
                     if not use_decimal and isinf(result):
                         msg = "Big numbers require decimal"

@@ -25,6 +25,7 @@ typedef struct _PyScannerObject {
     int allow_duplicate_keys;
     int allow_missing_commas;
     int allow_nan_and_infinity;
+    int allow_surrogates;
     int allow_trailing_comma;
     int use_decimal;
 } PyScannerObject;
@@ -34,11 +35,12 @@ typedef struct _PyEncoderObject {
     PyObject *Decimal;
     PyObject *encode_decimal;
     PyObject *indent;
-    PyObject *key_separator;
     PyObject *item_separator;
-    int sort_keys;
+    PyObject *key_separator;
     int allow_nan_and_infinity;
+    int allow_surrogates;
     int ensure_ascii;
+    int sort_keys;
 } PyEncoderObject;
 
 static Py_hash_t duplicatekey_hash(PyUnicodeObject *self) {
@@ -55,9 +57,9 @@ static PyTypeObject PyDuplicateKeyType = {
 /* Forward decls */
 
 static PyObject *
-ascii_escape_unicode(PyObject *pystr);
+ascii_escape_unicode(PyObject *pystr, int allow_surrogates);
 static PyObject *
-py_encode_basestring_ascii(PyObject* Py_UNUSED(self), PyObject *pystr);
+py_encode_basestring_ascii(PyObject* Py_UNUSED(self), PyObject *allow_surrogates, PyObject *pystr);
 static PyObject *
 scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyObject *pystr, Py_ssize_t idx, Py_ssize_t *next_idx_ptr);
 static PyObject *
@@ -150,7 +152,7 @@ _skip_comments(PyScannerObject *s, PyObject *pyfilename, PyObject *pystr, Py_ssi
 }
 
 static Py_ssize_t
-ascii_escape_unichar(Py_UCS4 c, unsigned char *output, Py_ssize_t chars)
+ascii_escape_unichar(Py_UCS4 c, unsigned char *output, Py_ssize_t chars, int allow_surrogates)
 {
     /* Escape unicode code point c to ASCII escape sequences
     in char *output. output must have at least 12 bytes unused to
@@ -176,9 +178,8 @@ ascii_escape_unichar(Py_UCS4 c, unsigned char *output, Py_ssize_t chars)
                 c = Py_UNICODE_LOW_SURROGATE(c);
                 output[chars++] = '\\';
             }
-            if (0xd800 <= c && c <= 0xdfff) {
-                PyErr_Format(PyExc_ValueError,
-                             "Surrogate '\\u%x' can not be escaped", c);
+            if (0xd800 <= c && c <= 0xdfff && !allow_surrogates) {
+                PyErr_SetString(PyExc_ValueError, "Surrogates are not allowed");
                 return -1;
             }
             output[chars++] = 'u';
@@ -191,7 +192,7 @@ ascii_escape_unichar(Py_UCS4 c, unsigned char *output, Py_ssize_t chars)
 }
 
 static PyObject *
-ascii_escape_unicode(PyObject *pystr)
+ascii_escape_unicode(PyObject *pystr, int allow_surrogates)
 {
     /* Take a PyUnicode pystr and return a new ASCII-only escaped PyUnicode */
     Py_ssize_t i;
@@ -243,7 +244,7 @@ ascii_escape_unicode(PyObject *pystr)
             output[chars++] = c;
         }
         else {
-            chars = ascii_escape_unichar(c, output, chars);
+            chars = ascii_escape_unichar(c, output, chars, allow_surrogates);
             if (chars < 0) {
                 return NULL;
             }
@@ -374,7 +375,7 @@ raise_errmsg(const char *msg, PyObject *filename, PyObject *s, Py_ssize_t start,
 }
 
 static PyObject *
-scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, Py_ssize_t *next_end_ptr)
+scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, int allow_surrogates, Py_ssize_t *next_end_ptr)
 {
     /* Read the JSON string from PyUnicode pystr.
     end is the index of the first character after the quote.
@@ -508,34 +509,51 @@ scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, Py_ssi
                 }
             }
             /* Surrogate pair */
-            if (Py_UNICODE_IS_HIGH_SURROGATE(c) && end + 6 < len &&
-                PyUnicode_READ(kind, buf, next++) == '\\' &&
-                PyUnicode_READ(kind, buf, next++) == 'u') {
-                Py_UCS4 c2 = 0;
-                end += 6;
-                /* Decode 4 hex digits */
-                for (; next < end; next++) {
-                    Py_UCS4 digit = PyUnicode_READ(kind, buf, next);
-                    c2 <<= 4;
-                    switch (digit) {
-                        case '0': case '1': case '2': case '3': case '4':
-                        case '5': case '6': case '7': case '8': case '9':
-                            c2 |= (digit - '0'); break;
-                        case 'a': case 'b': case 'c': case 'd': case 'e':
-                        case 'f':
-                            c2 |= (digit - 'a' + 10); break;
-                        case 'A': case 'B': case 'C': case 'D': case 'E':
-                        case 'F':
-                            c2 |= (digit - 'A' + 10); break;
-                        default:
-                            raise_errmsg("Expecting 4 hex digits", pyfilename, pystr, end - 4, end);
-                            goto bail;
+            if (Py_UNICODE_IS_HIGH_SURROGATE(c)) {
+                if (end + 2 < len &&
+                    PyUnicode_READ(kind, buf, next++) == '\\' &&
+                    PyUnicode_READ(kind, buf, next++) == 'u') {
+                    if (end + 6 > len) {
+                        raise_errmsg("Expecting 4 hex digits", pyfilename, pystr, end + 2, end + 6);
+                        goto bail;
+                    }
+                    Py_UCS4 c2 = 0;
+                    /* Decode 4 hex digits */
+                    for (; next < end + 6; next++) {
+                        Py_UCS4 digit = PyUnicode_READ(kind, buf, next);
+                        c2 <<= 4;
+                        switch (digit) {
+                            case '0': case '1': case '2': case '3': case '4':
+                            case '5': case '6': case '7': case '8': case '9':
+                                c2 |= (digit - '0'); break;
+                            case 'a': case 'b': case 'c': case 'd': case 'e':
+                            case 'f':
+                                c2 |= (digit - 'a' + 10); break;
+                            case 'A': case 'B': case 'C': case 'D': case 'E':
+                            case 'F':
+                                c2 |= (digit - 'A' + 10); break;
+                            default:
+                                raise_errmsg("Expecting 4 hex digits", pyfilename, pystr, end + 2, end + 6);
+                                goto bail;
+                        }
+                    }
+                    if (Py_UNICODE_IS_LOW_SURROGATE(c2)) {
+                        end += 6;
+                        c = Py_UNICODE_JOIN_SURROGATES(c, c2);
+                    }
+                    else if (!allow_surrogates) {
+                        raise_errmsg("Surrogates are not allowed", pyfilename, pystr, end - 6, end);
+                        goto bail;
                     }
                 }
-                if (Py_UNICODE_IS_LOW_SURROGATE(c2))
-                    c = Py_UNICODE_JOIN_SURROGATES(c, c2);
-                else
-                    end -= 6;
+                else if (!allow_surrogates) {
+                    raise_errmsg("Surrogates are not allowed", pyfilename, pystr, end - 6, end);
+                    goto bail;
+                }
+            }
+            else if (Py_UNICODE_IS_LOW_SURROGATE(c) && !allow_surrogates) {
+                raise_errmsg("Surrogates are not allowed", pyfilename, pystr, end - 6, end);
+                goto bail;
             }
         }
         if (_PyUnicodeWriter_WriteChar(&writer, c) < 0) {
@@ -560,17 +578,17 @@ PyDoc_STRVAR(pydoc_encode_basestring_ascii,
 );
 
 static PyObject *
-py_encode_basestring_ascii(PyObject* Py_UNUSED(self), PyObject *pystr)
+py_encode_basestring_ascii(PyObject* Py_UNUSED(self), PyObject *allow_surrogates, PyObject *pystr)
 {
     PyObject *rval;
     /* Return an ASCII-only JSON representation of a Python string */
     /* METH_O */
     if (PyUnicode_Check(pystr)) {
-        rval = ascii_escape_unicode(pystr);
+        rval = ascii_escape_unicode(pystr, PyObject_IsTrue(allow_surrogates));
     }
     else {
         PyErr_Format(PyExc_TypeError,
-                     "first argument must be a string, not %.80s",
+                     "second argument must be a string, not %.80s",
                      Py_TYPE(pystr)->tp_name);
         return NULL;
     }
@@ -673,7 +691,7 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
                 raise_errmsg("Expecting string", pyfilename, pystr, idx, -1);
                 goto bail;
             }
-            key = scanstring_unicode(pyfilename, pystr, idx + 1, &next_idx);
+            key = scanstring_unicode(pyfilename, pystr, idx + 1, s->allow_surrogates, &next_idx);
             if (key == NULL)
                 goto bail;
             if (!PyDict_Contains(rval, key)) {
@@ -1013,7 +1031,7 @@ scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyOb
     switch (PyUnicode_READ(kind, str, idx)) {
         case '"':
             /* string */
-            return scanstring_unicode(pyfilename, pystr, idx + 1, next_idx_ptr);
+            return scanstring_unicode(pyfilename, pystr, idx + 1, s->allow_surrogates, next_idx_ptr);
         case '{':
             /* object */
             if (_Py_EnterRecursiveCall(" while decoding a JSON object "
@@ -1167,15 +1185,18 @@ scanner_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     static char *kwlist[] = {"allow_comments", "allow_duplicate_keys",
                              "allow_missing_commas", "allow_nan_and_infinity",
-                             "allow_trailing_comma", "use_decimal", NULL};
+                             "allow_surrogates", "allow_trailing_comma",
+                             "use_decimal", NULL};
 
     PyScannerObject *s;
     int allow_comments, allow_duplicate_keys, allow_missing_commas;
-    int allow_nan_and_infinity, allow_trailing_comma, use_decimal;
+    int allow_nan_and_infinity, allow_surrogates, allow_trailing_comma;
+    int use_decimal;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "pppppp:make_scanner", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ppppppp:make_scanner", kwlist,
         &allow_comments, &allow_duplicate_keys, &allow_missing_commas,
-        &allow_nan_and_infinity, &allow_trailing_comma, &use_decimal))
+        &allow_nan_and_infinity, &allow_surrogates, &allow_trailing_comma,
+        &use_decimal))
         return NULL;
 
     s = (PyScannerObject *)type->tp_alloc(type, 0);
@@ -1196,6 +1217,7 @@ scanner_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     s->allow_duplicate_keys = allow_duplicate_keys;
     s->allow_missing_commas = allow_missing_commas;
     s->allow_nan_and_infinity = allow_nan_and_infinity;
+    s->allow_surrogates = allow_surrogates;
     s->allow_trailing_comma = allow_trailing_comma;
     s->use_decimal = use_decimal;
     return (PyObject *)s;
@@ -1228,19 +1250,20 @@ static PyType_Spec PyScannerType_spec = {
 static PyObject *
 encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    static char *kwlist[] = {"encode_decimal", "indent", "key_separator",
-                             "item_separator", "sort_keys",
-                             "allow_nan_and_infinity", "ensure_ascii", NULL};
+    static char *kwlist[] = {"encode_decimal", "indent", "item_separator",
+                             "key_separator", "allow_nan_and_infinity",
+                             "allow_surrogates", "ensure_ascii", "sort_keys",
+                             NULL};
 
     PyEncoderObject *s;
-    PyObject *encode_decimal, *indent, *key_separator;
-    PyObject *item_separator;
-    int sort_keys, allow_nan_and_infinity, ensure_ascii;
+    PyObject *encode_decimal, *indent;
+    PyObject *item_separator, *key_separator;
+    int allow_nan_and_infinity, allow_surrogates, ensure_ascii, sort_keys;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOUUppp:make_encoder", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOUUpppp:make_encoder", kwlist,
         &encode_decimal, &indent,
-        &key_separator, &item_separator,
-        &sort_keys, &allow_nan_and_infinity, &ensure_ascii))
+        &item_separator, &key_separator,
+        &allow_nan_and_infinity, &allow_surrogates, &ensure_ascii, &sort_keys))
         return NULL;
 
     s = (PyEncoderObject *)type->tp_alloc(type, 0);
@@ -1258,11 +1281,12 @@ encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     }
     s->encode_decimal = Py_NewRef(encode_decimal);
     s->indent = Py_NewRef(indent);
-    s->key_separator = Py_NewRef(key_separator);
     s->item_separator = Py_NewRef(item_separator);
-    s->sort_keys = sort_keys;
+    s->key_separator = Py_NewRef(key_separator);
     s->allow_nan_and_infinity = allow_nan_and_infinity;
+    s->allow_surrogates = allow_surrogates;
     s->ensure_ascii = ensure_ascii;
+    s->sort_keys = sort_keys;
     return (PyObject *)s;
 
 bail:
@@ -1346,7 +1370,7 @@ encoder_encode_string(PyEncoderObject *s, PyObject *obj)
         return escape_unicode(obj);
     }
     else {
-        return ascii_escape_unicode(obj);
+        return ascii_escape_unicode(obj, s->allow_surrogates);
     }
 }
 

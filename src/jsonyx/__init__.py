@@ -1,4 +1,6 @@
 # Copyright (C) 2024 Nice Zombies
+# TODO(Nice Zombies): add jsonyx.read(filename)
+# TODO(Nice Zombies): add jsonyx.write(obj, filename)
 """JSONYX module for JSON (de)serialization."""
 from __future__ import annotations
 
@@ -7,7 +9,7 @@ __all__: list[str] = [
     "DuplicateKey",
     "Encoder",
     "JSONSyntaxError",
-    "auto_decode",
+    "detect_encoding",
     "dump",
     "dumps",
     "format_syntax_error",
@@ -35,7 +37,7 @@ if TYPE_CHECKING:
 
     _AllowList = Container[Literal[
         "comments", "duplicate_keys", "missing_commas", "nan_and_infinity",
-        "trailing_comma",
+        "surrogates", "trailing_comma",
     ] | str]
 
 try:
@@ -45,8 +47,10 @@ except ImportError:
     make_encoder = None
 
 
-def auto_decode(b: bytearray | bytes) -> str:
-    """Auto decode bytes."""
+def detect_encoding(b: bytearray | bytes) -> str:
+    """Detect JSON encoding."""
+    # JSON must start with ASCII character (not NULL)
+    # Strings can't contain control characters (including NULL)
     encoding: str = "utf-8"
     startswith: Callable[[bytes | tuple[bytes, ...]], bool] = b.startswith
     if startswith((BOM_UTF32_BE, BOM_UTF32_LE)):
@@ -67,13 +71,13 @@ def auto_decode(b: bytearray | bytes) -> str:
             encoding = "utf-16-le" if b[2] or b[3] else "utf-32-le"
     elif len(b) == 2:
         if not b[0]:
-            # 00 XX - utf-16-be
+            # 00 -- - utf-16-be
             encoding = "utf-16-be"
         elif not b[1]:
             # XX 00 - utf-16-le
             encoding = "utf-16-le"
 
-    return b.decode(encoding, "surrogatepass")
+    return encoding
 
 
 class Decoder:
@@ -83,15 +87,15 @@ class Decoder:
         self,
         *,
         allow: _AllowList = NOTHING,
-        decode: Callable[[bytearray | bytes], str] = auto_decode,
         use_decimal: bool = False,
     ) -> None:
         """Create new JSON decoder."""
-        self._decode: Callable[[bytearray | bytes], str] = decode
+        allow_surrogates: bool = "surrogates" in allow
+        self._errors: str = "surrogatepass" if allow_surrogates else "strict"
         self._scanner: Callable[[str, str], tuple[Any]] = make_scanner(
             "comments" in allow, "duplicate_keys" in allow,
             "missing_commas" in allow, "nan_and_infinity" in allow,
-            "trailing_comma" in allow, use_decimal,
+            allow_surrogates, "trailing_comma" in allow, use_decimal,
         )
 
     def load(
@@ -108,7 +112,7 @@ class Decoder:
             filename = realpath(filename)
 
         if not isinstance(s, str):
-            s = self._decode(s)
+            s = s.decode(detect_encoding(s), self._errors)
         elif s.startswith("\ufeff"):
             msg: str = "Unexpected UTF-8 BOM"
             raise JSONSyntaxError(msg, filename, s, 0)
@@ -119,6 +123,7 @@ class Decoder:
 class Encoder:
     """JSON encoder."""
 
+    # TODO(Nice Zombies): add trailing_comma=True
     # pylint: disable-next=R0913
     def __init__(  # noqa: PLR0913
         self,
@@ -132,6 +137,7 @@ class Encoder:
     ) -> None:
         """Create new JSON encoder."""
         allow_nan_and_infinity: bool = "nan_and_infinity" in allow
+        allow_surrogates: bool = "surrogates" in allow
         decimal_str: Callable[[Decimal], str] = Decimal.__str__
 
         def encode_decimal(decimal: Decimal) -> str:
@@ -158,13 +164,15 @@ class Encoder:
             self._encoder: Callable[[Any], str] | None = None
         else:
             self._encoder = make_encoder(
-                encode_decimal, indent, key_separator, item_separator,
-                sort_keys, allow_nan_and_infinity, ensure_ascii,
+                encode_decimal, indent, item_separator, key_separator,
+                allow_nan_and_infinity, allow_surrogates, ensure_ascii,
+                sort_keys,
             )
 
+        # TODO(Nice Zombies): implement writer in C
         self._writer: Callable[[Any, SupportsWrite[str]], None] = make_writer(
-            encode_decimal, indent, key_separator, item_separator, sort_keys,
-            allow_nan_and_infinity, ensure_ascii,
+            encode_decimal, indent, item_separator, key_separator,
+            allow_nan_and_infinity, allow_surrogates, ensure_ascii, sort_keys,
         )
 
     def dump(self, obj: Any, fp: SupportsWrite[str]) -> None:
@@ -188,6 +196,7 @@ def format_syntax_error(exc: JSONSyntaxError) -> str:
         " " * (exc.offset - 1) + "^" * selection_length  # type: ignore
     )
     exc_type: type[JSONSyntaxError] = type(exc)
+    # TODO(Nice Zombies): include exc.end_lineno and exc.end_colno
     return f"""\
   File {exc.filename!r}, line {exc.lineno:d}, column {exc.colno:d}
     {exc.text}
@@ -243,12 +252,11 @@ def load(
     fp: SupportsRead[bytes | str],
     *,
     allow: _AllowList = NOTHING,
-    decode: Callable[[bytearray | bytes], str] = auto_decode,
     filename: str = "<string>",
     use_decimal: bool = False,
 ) -> Any:
     """Deserialize a JSON file to a Python object."""
-    return Decoder(allow=allow, decode=decode, use_decimal=use_decimal).load(
+    return Decoder(allow=allow, use_decimal=use_decimal).load(
         fp, filename=filename,
     )
 
@@ -257,11 +265,10 @@ def loads(
     s: bytearray | bytes | str,
     *,
     allow: _AllowList = NOTHING,
-    decode: Callable[[bytearray | bytes], str] = auto_decode,
     filename: str = "<string>",
     use_decimal: bool = False,
 ) -> Any:
     """Deserialize a JSON string to a Python object."""
-    return Decoder(allow=allow, decode=decode, use_decimal=use_decimal).loads(
+    return Decoder(allow=allow, use_decimal=use_decimal).loads(
         s, filename=filename,
     )
