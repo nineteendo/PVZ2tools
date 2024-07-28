@@ -52,31 +52,31 @@ def detect_encoding(b: bytearray | bytes) -> str:
     """Detect JSON encoding."""
     # JSON must start with ASCII character (not NULL)
     # Strings can't contain control characters (including NULL)
-    encoding: str = "utf-8"
+    encoding: str = "utf_8"
     startswith: Callable[[bytes | tuple[bytes, ...]], bool] = b.startswith
     if startswith((BOM_UTF32_BE, BOM_UTF32_LE)):
-        encoding = "utf-32"
+        encoding = "utf_32"
     elif startswith((BOM_UTF16_BE, BOM_UTF16_LE)):
-        encoding = "utf-16"
+        encoding = "utf_16"
     elif startswith(BOM_UTF8):
-        encoding = "utf-8-sig"
+        encoding = "utf_8_sig"
     elif len(b) >= 4:
         if not b[0]:
-            # 00 00 -- -- - utf-32-be
-            # 00 XX -- -- - utf-16-be
-            encoding = "utf-16-be" if b[1] else "utf-32-be"
+            # 00 00 -- -- - utf_32_be
+            # 00 XX -- -- - utf_16_be
+            encoding = "utf_16_be" if b[1] else "utf_32_be"
         elif not b[1]:
-            # XX 00 00 00 - utf-32-le
-            # XX 00 00 XX - utf-16-le
-            # XX 00 XX -- - utf-16-le
-            encoding = "utf-16-le" if b[2] or b[3] else "utf-32-le"
+            # XX 00 00 00 - utf_32_le
+            # XX 00 00 XX - utf_16_le
+            # XX 00 XX -- - utf_16_le
+            encoding = "utf_16_le" if b[2] or b[3] else "utf_32_le"
     elif len(b) == 2:
         if not b[0]:
-            # 00 -- - utf-16-be
-            encoding = "utf-16-be"
+            # 00 -- - utf_16_be
+            encoding = "utf_16_be"
         elif not b[1]:
-            # XX 00 - utf-16-le
-            encoding = "utf-16-le"
+            # XX 00 - utf_16_le
+            encoding = "utf_16_le"
 
     return encoding
 
@@ -186,7 +186,7 @@ class Encoder:
 
     def write(self, obj: Any, path: StrPath) -> None:
         """Serialize a Python object to a JSON file."""
-        with Path(path).open("w", encoding="utf-8") as fp:
+        with Path(path).open("w", encoding="utf_8") as fp:
             self._writer(obj, fp)
 
     def dump(self, obj: Any, fp: SupportsWrite[str]) -> None:

@@ -54,46 +54,46 @@ def test_duplicate_key(json: ModuleType) -> None:
     # JSON must start with ASCII character (not NULL)
     # Strings can't contain control characters (including NULL)
 
-    # utf-8
-    ("", "utf-8"),  # Empty JSON (prefer utf-8)
-    ("XX", "utf-8"),  # 1 ASCII character
-    ("XX XX", "utf-8"),  # 2 ASCII characters
-    ("XX XX XX", "utf-8"),  # 3 ASCII characters
-    ("XX XX XX XX", "utf-8"),  # 4 ASCII characters
+    # utf_8
+    ("", "utf_8"),  # Empty JSON (prefer utf_8)
+    ("XX", "utf_8"),  # 1 ASCII character
+    ("XX XX", "utf_8"),  # 2 ASCII characters
+    ("XX XX XX", "utf_8"),  # 3 ASCII characters
+    ("XX XX XX XX", "utf_8"),  # 4 ASCII characters
 
-    # utf-8-sig
-    ("ef bb bf", "utf-8-sig"),  # Empty JSON with BOM
-    ("ef bb bf XX", "utf-8-sig"),  # BOM + 1 ASCII character
+    # utf_8_sig
+    ("ef bb bf", "utf_8_sig"),  # Empty JSON with BOM
+    ("ef bb bf XX", "utf_8_sig"),  # BOM + 1 ASCII character
 
-    # utf-16-be
-    ("00 XX", "utf-16-be"),  # 1 ASCII character (BE)
-    ("00 XX 00 XX", "utf-16-be"),  # 2 ASCII characters (BE)
-    ("00 XX XX 00", "utf-16-be"),  # 1 ASCII + 1 Unicode character (BE)
-    ("00 XX XX XX", "utf-16-be"),  # 1 ASCII + 1 Unicode character (BE)
+    # utf_16_be
+    ("00 XX", "utf_16_be"),  # 1 ASCII character (BE)
+    ("00 XX 00 XX", "utf_16_be"),  # 2 ASCII characters (BE)
+    ("00 XX XX 00", "utf_16_be"),  # 1 ASCII + 1 Unicode character (BE)
+    ("00 XX XX XX", "utf_16_be"),  # 1 ASCII + 1 Unicode character (BE)
 
-    # utf-16-le
-    ("XX 00", "utf-16-le"),  # 1 ASCII character (LE)
-    ("XX 00 00 XX", "utf-16-le"),  # 1 ASCII + 1 Unicode character (LE)
-    ("XX 00 XX 00", "utf-16-le"),  # 2 ASCII characters (LE)
-    ("XX 00 XX XX", "utf-16-le"),  # 1 ASCII + 1 Unicode character (LE)
+    # utf_16_le
+    ("XX 00", "utf_16_le"),  # 1 ASCII character (LE)
+    ("XX 00 00 XX", "utf_16_le"),  # 1 ASCII + 1 Unicode character (LE)
+    ("XX 00 XX 00", "utf_16_le"),  # 2 ASCII characters (LE)
+    ("XX 00 XX XX", "utf_16_le"),  # 1 ASCII + 1 Unicode character (LE)
 
-    # utf-16
-    ("fe ff", "utf-16"),  # Empty JSON with BOM (BE)
-    ("fe ff 00 XX", "utf-16"),  # BOM + 1 ASCII character (BE)
-    ("ff fe", "utf-16"),  # Empty JSON with BOM (LE)
-    ("ff fe XX 00", "utf-16"),  # BOM + 1 ASCII character (LE)
+    # utf_16
+    ("fe ff", "utf_16"),  # Empty JSON with BOM (BE)
+    ("fe ff 00 XX", "utf_16"),  # BOM + 1 ASCII character (BE)
+    ("ff fe", "utf_16"),  # Empty JSON with BOM (LE)
+    ("ff fe XX 00", "utf_16"),  # BOM + 1 ASCII character (LE)
 
-    # utf-32-be
-    ("00 00 00 XX", "utf-32-be"),  # 1 ASCII character (BE)
+    # utf_32_be
+    ("00 00 00 XX", "utf_32_be"),  # 1 ASCII character (BE)
 
-    # utf-32-le
-    ("XX 00 00 00", "utf-32-le"),  # 1 ASCII character (LE)
+    # utf_32_le
+    ("XX 00 00 00", "utf_32_le"),  # 1 ASCII character (LE)
 
-    # utf-32
-    ("00 00 fe ff", "utf-32"),  # Empty JSON with BOM (BE)
-    ("00 00 fe ff 00 00 00 XX", "utf-32"),  # BOM + 1 ASCII character (BE)
-    ("ff fe 00 00", "utf-32"),  # Empty JSON with BOM (LE)
-    ("ff fe 00 00 XX 00 00 00", "utf-32"),  # BOM + 1 ASCII character (LE)
+    # utf_32
+    ("00 00 fe ff", "utf_32"),  # Empty JSON with BOM (BE)
+    ("00 00 fe ff 00 00 00 XX", "utf_32"),  # BOM + 1 ASCII character (BE)
+    ("ff fe 00 00", "utf_32"),  # Empty JSON with BOM (LE)
+    ("ff fe 00 00 XX 00 00 00", "utf_32"),  # BOM + 1 ASCII character (LE)
 ])
 def test_detect_encoding(s: str, encoding: str) -> None:
     """Test detect JSON encoding."""
