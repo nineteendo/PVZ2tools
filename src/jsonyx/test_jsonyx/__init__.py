@@ -6,6 +6,8 @@
 # TODO(Nice Zombies): test jsonyx.dumps
 # TODO(Nice Zombies): test jsonyx.format_syntax_error
 # TODO(Nice Zombies): test jsonyx.load
+# TODO(Nice Zombies): test jsonyx.read
+# TODO(Nice Zombies): test jsonyx.write
 """JSON tests."""
 from __future__ import annotations
 

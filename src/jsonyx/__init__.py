@@ -1,6 +1,4 @@
 # Copyright (C) 2024 Nice Zombies
-# TODO(Nice Zombies): add jsonyx.read(filename)
-# TODO(Nice Zombies): add jsonyx.write(obj, filename)
 """JSONYX module for JSON (de)serialization."""
 from __future__ import annotations
 
@@ -15,6 +13,8 @@ __all__: list[str] = [
     "format_syntax_error",
     "load",
     "loads",
+    "read",
+    "write",
 ]
 
 from codecs import (
@@ -23,6 +23,7 @@ from codecs import (
 from decimal import Decimal
 from io import StringIO
 from os.path import realpath
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from jsonyx._decoder import DuplicateKey, JSONSyntaxError, make_scanner
@@ -33,7 +34,7 @@ from typing_extensions import Any, Literal  # type: ignore
 if TYPE_CHECKING:
     from collections.abc import Callable, Container
 
-    from _typeshed import SupportsRead, SupportsWrite
+    from _typeshed import StrPath, SupportsRead, SupportsWrite
 
     _AllowList = Container[Literal[
         "comments", "duplicate_keys", "missing_commas", "nan_and_infinity",
@@ -98,17 +99,25 @@ class Decoder:
             allow_surrogates, "trailing_comma" in allow, use_decimal,
         )
 
-    def load(
-        self, fp: SupportsRead[bytes | str], *, filename: str = "<string>",
-    ) -> Any:
+    def read(self, filename: StrPath) -> Any:
         """Deserialize a JSON file to a Python object."""
+        with Path(filename).open("rb") as fp:
+            self.loads(fp.read(), filename=filename)
+
+    def load(
+        self, fp: SupportsRead[bytes | str], *, filename: StrPath = "<string>",
+    ) -> Any:
+        """Deserialize an open JSON file to a Python object."""
         return self.loads(fp.read(), filename=getattr(fp, "name", filename))
 
     def loads(
-        self, s: bytearray | bytes | str, *, filename: str = "<string>",
+        self, s: bytearray | bytes | str, *, filename: StrPath = "<string>",
     ) -> Any:
         """Deserialize a JSON string to a Python object."""
-        if not filename.startswith("<") and not filename.endswith(">"):
+        if (
+            not isinstance(filename, str)
+            or (not filename.startswith("<") and not filename.endswith(">"))
+        ):
             filename = realpath(filename)
 
         if not isinstance(s, str):
@@ -175,8 +184,13 @@ class Encoder:
             allow_nan_and_infinity, allow_surrogates, ensure_ascii, sort_keys,
         )
 
-    def dump(self, obj: Any, fp: SupportsWrite[str]) -> None:
+    def write(self, obj: Any, path: StrPath) -> None:
         """Serialize a Python object to a JSON file."""
+        with Path(path).open("w", encoding="utf-8") as fp:
+            self._writer(obj, fp)
+
+    def dump(self, obj: Any, fp: SupportsWrite[str]) -> None:
+        """Serialize a Python object to an open JSON file."""
         self._writer(obj, fp)
 
     def dumps(self, obj: Any) -> str:
@@ -205,6 +219,62 @@ def format_syntax_error(exc: JSONSyntaxError) -> str:
 """
 
 
+def read(
+    path: StrPath, *, allow: _AllowList = NOTHING, use_decimal: bool = False,
+) -> Any:
+    """Deserialize a JSON file to a Python object."""
+    return Decoder(allow=allow, use_decimal=use_decimal).read(path)
+
+
+def load(
+    fp: SupportsRead[bytes | str],
+    *,
+    allow: _AllowList = NOTHING,
+    filename: StrPath = "<string>",
+    use_decimal: bool = False,
+) -> Any:
+    """Deserialize an open JSON file to a Python object."""
+    return Decoder(allow=allow, use_decimal=use_decimal).load(
+        fp, filename=filename,
+    )
+
+
+def loads(
+    s: bytearray | bytes | str,
+    *,
+    allow: _AllowList = NOTHING,
+    filename: StrPath = "<string>",
+    use_decimal: bool = False,
+) -> Any:
+    """Deserialize a JSON string to a Python object."""
+    return Decoder(allow=allow, use_decimal=use_decimal).loads(
+        s, filename=filename,
+    )
+
+
+# pylint: disable-next=R0913
+def write(  # noqa: PLR0913
+    obj: Any,
+    path: StrPath,
+    *,
+    allow: _AllowList = NOTHING,
+    ensure_ascii: bool = False,
+    indent: int | str | None = None,
+    item_separator: str = ", ",
+    key_separator: str = ": ",
+    sort_keys: bool = False,
+) -> None:
+    """Serialize a Python object to a JSON file."""
+    return Encoder(
+        allow=allow,
+        ensure_ascii=ensure_ascii,
+        indent=indent,
+        item_separator=item_separator,
+        key_separator=key_separator,
+        sort_keys=sort_keys,
+    ).write(obj, path)
+
+
 # pylint: disable-next=R0913
 def dump(  # noqa: PLR0913
     obj: Any,
@@ -216,7 +286,7 @@ def dump(  # noqa: PLR0913
     item_separator: str = ", ",
     key_separator: str = ": ",
 ) -> None:
-    """Serialize a Python object to a JSON file."""
+    """Serialize a Python object to an open JSON file."""
     Encoder(
         allow=allow,
         ensure_ascii=ensure_ascii,
@@ -246,29 +316,3 @@ def dumps(  # noqa: PLR0913
         key_separator=key_separator,
         sort_keys=sort_keys,
     ).dumps(obj)
-
-
-def load(
-    fp: SupportsRead[bytes | str],
-    *,
-    allow: _AllowList = NOTHING,
-    filename: str = "<string>",
-    use_decimal: bool = False,
-) -> Any:
-    """Deserialize a JSON file to a Python object."""
-    return Decoder(allow=allow, use_decimal=use_decimal).load(
-        fp, filename=filename,
-    )
-
-
-def loads(
-    s: bytearray | bytes | str,
-    *,
-    allow: _AllowList = NOTHING,
-    filename: str = "<string>",
-    use_decimal: bool = False,
-) -> Any:
-    """Deserialize a JSON string to a Python object."""
-    return Decoder(allow=allow, use_decimal=use_decimal).loads(
-        s, filename=filename,
-    )

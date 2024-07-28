@@ -76,6 +76,7 @@ def _unescape_unicode(filename: str, s: str, end: int) -> int:
             pass
 
     msg: str = "Expecting 4 hex digits"
+    # TODO(Nice Zombies): pass offset (-4)
     raise _errmsg(msg, filename, s, end, end + 4)
 
 
@@ -100,12 +101,14 @@ class JSONSyntaxError(SyntaxError):
     ) -> None:
         """Create new JSON syntax error."""
         if end == -1:
+            # TODO(Nice Zombies): end < -1 for offset on the same line
             end = start + 1
 
         lineno: int = doc.count("\n", 0, start) + 1
         self.colno: int = start - doc.rfind("\n", 0, start)
         self.end_colno: int = self.colno + end - start
         offset, text, end_offset = _get_err_context(doc, start, end)
+        # TODO(Nice Zombies): save end_lineno
         super().__init__(
             msg, (filename, lineno, offset, text, lineno, end_offset),
         )
@@ -145,7 +148,6 @@ except ImportError:
                 if match := _match_whitespace(s, end):
                     end = match.end()
 
-                # TODO(Nice Zombies): raise error for control characters
                 comment_idx: int = end
                 if (comment_prefix := s[end:end + 2]) == "//":
                     if (end := find("\n", end + 2)) != -1:
