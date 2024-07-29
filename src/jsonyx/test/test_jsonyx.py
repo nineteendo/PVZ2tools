@@ -1,4 +1,6 @@
 # Copyright (C) 2024 Nice Zombies
+# TODO(Nice Zombies): test jsonyx.JSONSyntaxError
+# TODO(Nice Zombies): test jsonyx.format_syntax_error
 """JSON tests."""
 from __future__ import annotations
 
