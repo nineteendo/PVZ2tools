@@ -170,7 +170,7 @@ except ImportError:
                 elif comment_prefix == "/*":
                     if (end := find("*/", end + 2)) == -1:
                         if allow_comments:
-                            msg = "Unterminated comment"
+                            msg: str = "Unterminated comment"
                         else:
                             msg = "Comments are not allowed"
 
@@ -395,7 +395,7 @@ except ImportError:
 
                     return values, end + 1
 
-        # pylint: disable-next=R0912
+        # pylint: disable-next=R0912, R0915
         def scan_value(  # noqa: C901, PLR0912
             filename: str, s: str, idx: int,
         ) -> tuple[Any, int]:
