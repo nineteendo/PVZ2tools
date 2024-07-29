@@ -48,39 +48,6 @@ except ImportError:
     make_encoder = None
 
 
-def detect_encoding(b: bytearray | bytes) -> str:
-    """Detect JSON encoding."""
-    # JSON must start with ASCII character (not NULL)
-    # Strings can't contain control characters (including NULL)
-    encoding: str = "utf_8"
-    startswith: Callable[[bytes | tuple[bytes, ...]], bool] = b.startswith
-    if startswith((BOM_UTF32_BE, BOM_UTF32_LE)):
-        encoding = "utf_32"
-    elif startswith((BOM_UTF16_BE, BOM_UTF16_LE)):
-        encoding = "utf_16"
-    elif startswith(BOM_UTF8):
-        encoding = "utf_8_sig"
-    elif len(b) >= 4:
-        if not b[0]:
-            # 00 00 -- -- - utf_32_be
-            # 00 XX -- -- - utf_16_be
-            encoding = "utf_16_be" if b[1] else "utf_32_be"
-        elif not b[1]:
-            # XX 00 00 00 - utf_32_le
-            # XX 00 00 XX - utf_16_le
-            # XX 00 XX -- - utf_16_le
-            encoding = "utf_16_le" if b[2] or b[3] else "utf_32_le"
-    elif len(b) == 2:
-        if not b[0]:
-            # 00 -- - utf_16_be
-            encoding = "utf_16_be"
-        elif not b[1]:
-            # XX 00 - utf_16_le
-            encoding = "utf_16_le"
-
-    return encoding
-
-
 class Decoder:
     """JSON decoder."""
 
@@ -180,9 +147,9 @@ class Encoder:
             allow_nan_and_infinity, allow_surrogates, ensure_ascii, sort_keys,
         )
 
-    def write(self, obj: Any, path: StrPath) -> None:
+    def write(self, obj: Any, filename: StrPath) -> None:
         """Serialize a Python object to a JSON file."""
-        with Path(path).open("w", encoding="utf_8") as fp:
+        with Path(filename).open("w", encoding="utf_8") as fp:
             self._writer(obj, fp)
 
     def dump(self, obj: Any, fp: SupportsWrite[str]) -> None:
@@ -197,6 +164,39 @@ class Encoder:
         fp: StringIO = StringIO()
         self._writer(obj, fp)
         return fp.getvalue()
+
+
+def detect_encoding(b: bytearray | bytes) -> str:
+    """Detect JSON encoding."""
+    # JSON must start with ASCII character (not NULL)
+    # Strings can't contain control characters (including NULL)
+    encoding: str = "utf_8"
+    startswith: Callable[[bytes | tuple[bytes, ...]], bool] = b.startswith
+    if startswith((BOM_UTF32_BE, BOM_UTF32_LE)):
+        encoding = "utf_32"
+    elif startswith((BOM_UTF16_BE, BOM_UTF16_LE)):
+        encoding = "utf_16"
+    elif startswith(BOM_UTF8):
+        encoding = "utf_8_sig"
+    elif len(b) >= 4:
+        if not b[0]:
+            # 00 00 -- -- - utf_32_be
+            # 00 XX -- -- - utf_16_be
+            encoding = "utf_16_be" if b[1] else "utf_32_be"
+        elif not b[1]:
+            # XX 00 00 00 - utf_32_le
+            # XX 00 00 XX - utf_16_le
+            # XX 00 XX -- - utf_16_le
+            encoding = "utf_16_le" if b[2] or b[3] else "utf_32_le"
+    elif len(b) == 2:
+        if not b[0]:
+            # 00 -- - utf_16_be
+            encoding = "utf_16_be"
+        elif not b[1]:
+            # XX 00 - utf_16_le
+            encoding = "utf_16_le"
+
+    return encoding
 
 
 def format_syntax_error(exc: JSONSyntaxError) -> str:
@@ -216,10 +216,13 @@ def format_syntax_error(exc: JSONSyntaxError) -> str:
 
 
 def read(
-    path: StrPath, *, allow: _AllowList = NOTHING, use_decimal: bool = False,
+    filename: StrPath,
+    *,
+    allow: _AllowList = NOTHING,
+    use_decimal: bool = False,
 ) -> Any:
     """Deserialize a JSON file to a Python object."""
-    return Decoder(allow=allow, use_decimal=use_decimal).read(path)
+    return Decoder(allow=allow, use_decimal=use_decimal).read(filename)
 
 
 def load(
@@ -248,7 +251,7 @@ def loads(
 # pylint: disable-next=R0913
 def write(  # noqa: PLR0913
     obj: Any,
-    path: StrPath,
+    filename: StrPath,
     *,
     allow: _AllowList = NOTHING,
     ensure_ascii: bool = False,
@@ -265,7 +268,7 @@ def write(  # noqa: PLR0913
         item_separator=item_separator,
         key_separator=key_separator,
         sort_keys=sort_keys,
-    ).write(obj, path)
+    ).write(obj, filename)
 
 
 # pylint: disable-next=R0913
