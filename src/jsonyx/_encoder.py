@@ -67,6 +67,7 @@ except ImportError:
 # pylint: disable-next=R0915, R0913, R0914
 def make_writer(  # noqa: C901, PLR0915, PLR0917, PLR0913
     encode_decimal: Callable[[Decimal], str],
+    end: str,
     indent: str | None,
     item_separator: str,
     key_separator: str,
@@ -206,11 +207,14 @@ def make_writer(  # noqa: C901, PLR0915, PLR0917, PLR0913
             raise TypeError(msg)
 
     def writer(obj: Any, fp: SupportsWrite[str]) -> None:
+        write: Callable[[str], Any] = fp.write
         try:
-            write_value(obj, fp.write, "\n")
+            write_value(obj, write, "\n")
         except (ValueError, TypeError) as exc:
             raise exc.with_traceback(None) from exc
         finally:
             markers.clear()
+
+        write(end)
 
     return writer

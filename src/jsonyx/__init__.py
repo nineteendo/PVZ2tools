@@ -25,6 +25,7 @@ from io import StringIO
 from os import fspath
 from os.path import realpath
 from pathlib import Path
+from sys import stdout
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
@@ -103,6 +104,7 @@ class Encoder:
         self,
         *,
         allow: _AllowList = NOTHING,
+        end: str = "\n",
         ensure_ascii: bool = False,
         indent: int | str | None = None,
         item_separator: str = ", ",
@@ -138,14 +140,14 @@ class Encoder:
             self._encoder: Callable[[Any], str] | None = None
         else:
             self._encoder = make_encoder(
-                encode_decimal, indent, item_separator, key_separator,
+                encode_decimal, end, indent, item_separator, key_separator,
                 allow_nan_and_infinity, allow_surrogates, ensure_ascii,
                 sort_keys,
             )
 
         # TODO(Nice Zombies): implement writer in C
         self._writer: Callable[[Any, SupportsWrite[str]], None] = make_writer(
-            encode_decimal, indent, item_separator, key_separator,
+            encode_decimal, end, indent, item_separator, key_separator,
             allow_nan_and_infinity, allow_surrogates, ensure_ascii, sort_keys,
         )
 
@@ -154,7 +156,7 @@ class Encoder:
         with Path(filename).open("w", encoding="utf_8") as fp:
             self._writer(obj, fp)
 
-    def dump(self, obj: Any, fp: SupportsWrite[str]) -> None:
+    def dump(self, obj: Any, fp: SupportsWrite[str] = stdout) -> None:
         """Serialize a Python object to an open JSON file."""
         self._writer(obj, fp)
 
@@ -262,6 +264,7 @@ def write(  # noqa: PLR0913
     filename: StrPath,
     *,
     allow: _AllowList = NOTHING,
+    end: str = "\n",
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
@@ -271,6 +274,7 @@ def write(  # noqa: PLR0913
     """Serialize a Python object to a JSON file."""
     return Encoder(
         allow=allow,
+        end=end,
         ensure_ascii=ensure_ascii,
         indent=indent,
         item_separator=item_separator,
@@ -282,21 +286,25 @@ def write(  # noqa: PLR0913
 # pylint: disable-next=R0913
 def dump(  # noqa: PLR0913
     obj: Any,
-    fp: SupportsWrite[str],
+    fp: SupportsWrite[str] = stdout,
     *,
     allow: _AllowList = NOTHING,
+    end: str = "\n",
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
     key_separator: str = ": ",
+    sort_keys: bool = False,
 ) -> None:
     """Serialize a Python object to an open JSON file."""
     Encoder(
         allow=allow,
+        end=end,
         ensure_ascii=ensure_ascii,
         indent=indent,
         item_separator=item_separator,
         key_separator=key_separator,
+        sort_keys=sort_keys,
     ).dump(obj, fp)
 
 
@@ -305,6 +313,7 @@ def dumps(  # noqa: PLR0913
     obj: Any,
     *,
     allow: _AllowList = NOTHING,
+    end: str = "\n",
     ensure_ascii: bool = False,
     indent: int | str | None = None,
     item_separator: str = ", ",
@@ -314,6 +323,7 @@ def dumps(  # noqa: PLR0913
     """Serialize a Python object to a JSON string."""
     return Encoder(
         allow=allow,
+        end=end,
         ensure_ascii=ensure_ascii,
         indent=indent,
         item_separator=item_separator,

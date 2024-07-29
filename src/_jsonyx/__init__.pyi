@@ -30,6 +30,7 @@ def encode_basestring_ascii(
 
 def make_encoder(  # noqa: PLR0917, PLR0913
     encode_decimal: Callable[[Decimal], str],
+    end: str,
     indent: str | None,
     item_separator: str,
     key_separator: str,

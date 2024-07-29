@@ -34,6 +34,7 @@ typedef struct _PyEncoderObject {
     PyObject_HEAD
     PyObject *Decimal;
     PyObject *encode_decimal;
+    PyObject *end;
     PyObject *indent;
     PyObject *item_separator;
     PyObject *key_separator;
@@ -59,7 +60,7 @@ static PyTypeObject PyDuplicateKeyType = {
 static PyObject *
 ascii_escape_unicode(PyObject *pystr, int allow_surrogates);
 static PyObject *
-py_encode_basestring_ascii(PyObject* Py_UNUSED(self), PyObject *allow_surrogates, PyObject *pystr);
+py_encode_basestring_ascii(PyObject *self, PyObject *args);
 static PyObject *
 scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyObject *pystr, Py_ssize_t idx, Py_ssize_t *next_idx_ptr);
 static PyObject *
@@ -178,7 +179,7 @@ ascii_escape_unichar(Py_UCS4 c, unsigned char *output, Py_ssize_t chars, int all
                 c = Py_UNICODE_LOW_SURROGATE(c);
                 output[chars++] = '\\';
             }
-            if (0xd800 <= c && c <= 0xdfff && !allow_surrogates) {
+            else if (0xd800 <= c && c <= 0xdfff && !allow_surrogates) {
                 PyErr_SetString(PyExc_ValueError, "Surrogates are not allowed");
                 return -1;
             }
@@ -577,27 +578,23 @@ bail:
 }
 
 PyDoc_STRVAR(pydoc_encode_basestring_ascii,
-    "encode_basestring_ascii(string) -> string\n"
+    "encode_basestring_ascii(bool, string) -> string\n"
     "\n"
     "Return the ASCII-only JSON representation of a Python string"
 );
 
 static PyObject *
-py_encode_basestring_ascii(PyObject* Py_UNUSED(self), PyObject *allow_surrogates, PyObject *pystr)
+py_encode_basestring_ascii(PyObject *self, PyObject *args)
 {
-    PyObject *rval;
-    /* Return an ASCII-only JSON representation of a Python string */
-    /* METH_O */
-    if (PyUnicode_Check(pystr)) {
-        rval = ascii_escape_unicode(pystr, PyObject_IsTrue(allow_surrogates));
-    }
-    else {
-        PyErr_Format(PyExc_TypeError,
-                     "second argument must be a string, not %.80s",
-                     Py_TYPE(pystr)->tp_name);
+    PyObject *pystr;
+    int allow_surrogates;
+
+    if (!PyArg_ParseTuple(args, "pU:encode_basestring_ascii",
+        &allow_surrogates, &pystr))
+    {
         return NULL;
     }
-    return rval;
+    return ascii_escape_unicode(pystr, allow_surrogates);
 }
 
 
@@ -1166,7 +1163,7 @@ scanner_call(PyScannerObject *self, PyObject *args, PyObject *kwds)
     Py_ssize_t idx = 0;
     Py_ssize_t next_idx = -1;
     static char *kwlist[] = {"filename", "string", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "UU:scan_once", kwlist, &pyfilename, &pystr) ||
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "UU:scanner", kwlist, &pyfilename, &pystr) ||
         _skip_comments(self, pyfilename, pystr, &idx))
     {
         return NULL;
@@ -1261,18 +1258,18 @@ static PyType_Spec PyScannerType_spec = {
 static PyObject *
 encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    static char *kwlist[] = {"encode_decimal", "indent", "item_separator",
-                             "key_separator", "allow_nan_and_infinity",
-                             "allow_surrogates", "ensure_ascii", "sort_keys",
-                             NULL};
+    static char *kwlist[] = {"encode_decimal", "end", "indent",
+                             "item_separator", "key_separator",
+                             "allow_nan_and_infinity", "allow_surrogates",
+                             "ensure_ascii", "sort_keys", NULL};
 
     PyEncoderObject *s;
-    PyObject *encode_decimal, *indent;
+    PyObject *encode_decimal, *end, *indent;
     PyObject *item_separator, *key_separator;
     int allow_nan_and_infinity, allow_surrogates, ensure_ascii, sort_keys;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOUUpppp:make_encoder", kwlist,
-        &encode_decimal, &indent,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOUUpppp:make_encoder", kwlist,
+        &encode_decimal, &end, &indent,
         &item_separator, &key_separator,
         &allow_nan_and_infinity, &allow_surrogates, &ensure_ascii, &sort_keys))
         return NULL;
@@ -1291,6 +1288,7 @@ encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
         goto bail;
     }
     s->encode_decimal = Py_NewRef(encode_decimal);
+    s->end = Py_NewRef(end);
     s->indent = Py_NewRef(indent);
     s->item_separator = Py_NewRef(item_separator);
     s->key_separator = Py_NewRef(key_separator);
@@ -1313,7 +1311,7 @@ encoder_call(PyEncoderObject *self, PyObject *args, PyObject *kwds)
     PyObject *obj;
     _PyUnicodeWriter writer;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O:_iterencode", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O:encode", kwlist,
         &obj))
         return NULL;
 
@@ -1337,6 +1335,9 @@ encoder_call(PyEncoderObject *self, PyObject *args, PyObject *kwds)
 
     Py_DECREF(markers);
     Py_XDECREF(newline_indent);
+    if (_PyUnicodeWriter_WriteStr(&writer, self->end) < 0) {
+        goto bail;
+    }
     return _PyUnicodeWriter_Finish(&writer);
 
 bail:
@@ -1713,6 +1714,7 @@ encoder_traverse(PyEncoderObject *self, visitproc visit, void *arg)
 {
     Py_VISIT(Py_TYPE(self));
     Py_VISIT(self->encode_decimal);
+    Py_VISIT(self->end);
     Py_VISIT(self->indent);
     Py_VISIT(self->key_separator);
     Py_VISIT(self->item_separator);
@@ -1724,6 +1726,7 @@ encoder_clear(PyEncoderObject *self)
 {
     /* Deallocate Encoder */
     Py_CLEAR(self->encode_decimal);
+    Py_CLEAR(self->end);
     Py_CLEAR(self->indent);
     Py_CLEAR(self->key_separator);
     Py_CLEAR(self->item_separator);
@@ -1753,7 +1756,7 @@ static PyType_Spec PyEncoderType_spec = {
 static PyMethodDef speedups_methods[] = {
     {"encode_basestring_ascii",
         (PyCFunction)py_encode_basestring_ascii,
-        METH_O,
+        METH_VARARGS,
         pydoc_encode_basestring_ascii},
     {"encode_basestring",
         (PyCFunction)py_encode_basestring,

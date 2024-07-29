@@ -10,7 +10,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 from sys import stdin
 
-from jsonyx import JSONSyntaxError, dumps, format_syntax_error, loads
+from jsonyx import JSONSyntaxError, dump, format_syntax_error, loads
 from jsonyx.allow import EVERYTHING, NOTHING, SURROGATES
 from typing_extensions import Any  # type: ignore
 
@@ -65,7 +65,7 @@ def run(args: JSONNamespace) -> None:
     except JSONSyntaxError as exc:
         raise SystemExit(format_syntax_error(exc)) from None
 
-    print(dumps(
+    dump(
         obj,
         allow=EVERYTHING - SURROGATES if args.nonstrict else NOTHING,
         ensure_ascii=args.ensure_ascii,
@@ -75,7 +75,7 @@ def run(args: JSONNamespace) -> None:
         ),
         key_separator=":" if args.compact else ": ",
         sort_keys=args.sort_keys,
-    ))
+    )
 
 
 def _main() -> None:
