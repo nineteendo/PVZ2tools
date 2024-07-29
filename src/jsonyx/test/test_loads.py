@@ -36,6 +36,27 @@ def _check_syntax_err(
     assert exc.end_colno == end_colno
 
 
+@pytest.mark.parametrize(("s", "expected"), [
+    ('"\ud800"', "\ud800"),
+    ('"\ud800\u0024"', "\ud800$"),
+    ('"\udf48"', "\udf48"),  # noqa: PT014
+])
+def test_surrogates(json: ModuleType, s: str, expected: Any) -> None:
+    """Test surrogates."""
+    b: bytes = s.encode(errors="surrogatepass")
+    assert json.loads(b, allow=SURROGATES) == expected
+
+
+@pytest.mark.parametrize("s", [
+    '"\ud800"', '"\ud800\u0024"', '"\udf48"',  # noqa: PT014
+])
+def test_surrogates_not_allowed(json: ModuleType, s: str) -> None:
+    """Test surrogates if not allowed."""
+    b: bytes = s.encode(errors="surrogatepass")
+    with pytest.raises(UnicodeDecodeError):
+        json.loads(b)
+
+
 def test_utf8_bom(json: ModuleType) -> None:
     """Test UTF-8 BOM."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
@@ -271,8 +292,8 @@ def test_invalid_string(
     (r'"\ud800\u0024"', "\ud800$"),
     (r'"\udf48"', "\udf48"),
 ])
-def test_surrogates(json: ModuleType, s: str, expected: Any) -> None:
-    """Test surrogates."""
+def test_surrogate_escapes(json: ModuleType, s: str, expected: Any) -> None:
+    """Test surrogate escapes."""
     assert json.loads(s, allow=SURROGATES) == expected
 
 
