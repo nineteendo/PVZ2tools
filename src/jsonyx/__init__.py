@@ -22,6 +22,7 @@ from codecs import (
 )
 from decimal import Decimal
 from io import StringIO
+from os import fspath
 from os.path import realpath
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -84,10 +85,7 @@ class Decoder:
     """JSON decoder."""
 
     def __init__(
-        self,
-        *,
-        allow: _AllowList = NOTHING,
-        use_decimal: bool = False,
+        self, *, allow: _AllowList = NOTHING, use_decimal: bool = False,
     ) -> None:
         """Create new JSON decoder."""
         allow_surrogates: bool = "surrogates" in allow
@@ -103,21 +101,20 @@ class Decoder:
         with Path(filename).open("rb") as fp:
             self.loads(fp.read(), filename=filename)
 
-    def load(
-        self, fp: SupportsRead[bytes | str], *, filename: StrPath = "<string>",
-    ) -> Any:
+    def load(self, fp: SupportsRead[bytes | str]) -> Any:
         """Deserialize an open JSON file to a Python object."""
-        return self.loads(fp.read(), filename=getattr(fp, "name", filename))
+        return self.loads(fp.read(), filename=getattr(fp, "name", "<string>"))
 
     def loads(
         self, s: bytearray | bytes | str, *, filename: StrPath = "<string>",
     ) -> Any:
         """Deserialize a JSON string to a Python object."""
-        if (
-            not isinstance(filename, str)
-            or (not filename.startswith("<") and not filename.endswith(">"))
-        ):
-            filename = realpath(filename)
+        filename = fspath(filename)
+        if not filename.startswith("<") and not filename.endswith(">"):
+            try:
+                filename = realpath(filename, strict=True)
+            except OSError:
+                filename = "<unknown>"
 
         if not isinstance(s, str):
             s = s.decode(detect_encoding(s), self._errors)
@@ -229,13 +226,10 @@ def load(
     fp: SupportsRead[bytes | str],
     *,
     allow: _AllowList = NOTHING,
-    filename: StrPath = "<string>",
     use_decimal: bool = False,
 ) -> Any:
     """Deserialize an open JSON file to a Python object."""
-    return Decoder(allow=allow, use_decimal=use_decimal).load(
-        fp, filename=filename,
-    )
+    return Decoder(allow=allow, use_decimal=use_decimal).load(fp)
 
 
 def loads(
