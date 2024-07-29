@@ -46,14 +46,14 @@ def register(parser: ArgumentParser) -> None:
 
 def run(args: JSONNamespace) -> None:
     """Run JSON tool."""
-    s: bytes | str
     if args.filename:
         filename: str = args.filename
-        s = Path(filename).read_bytes()
-    elif stdin.isatty():
-        filename, s = "<stdin>", "\n".join(iter(input, ""))
+        s: bytes | str = Path(filename).read_bytes()
     else:
-        filename, s = "<stdin>", stdin.buffer.read()
+        filename = "<stdin>"
+        s = "\n".join(
+            iter(input, ""),
+        ) if stdin.isatty() else stdin.buffer.read()
 
     try:
         obj: Any = loads(
