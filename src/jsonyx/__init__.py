@@ -65,8 +65,7 @@ class Decoder:
 
     def read(self, filename: StrPath) -> Any:
         """Deserialize a JSON file to a Python object."""
-        with Path(filename).open("rb") as fp:
-            self.loads(fp.read(), filename=filename)
+        self.loads(Path(filename).read_bytes(), filename=filename)
 
     def load(self, fp: SupportsRead[bytes | str]) -> Any:
         """Deserialize an open JSON file to a Python object."""
