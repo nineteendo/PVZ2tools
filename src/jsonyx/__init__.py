@@ -25,6 +25,7 @@ from io import StringIO
 from os import fspath
 from os.path import realpath
 from pathlib import Path
+from textwrap import dedent
 from typing import TYPE_CHECKING
 
 from jsonyx._decoder import DuplicateKey, JSONSyntaxError, make_scanner
@@ -203,26 +204,23 @@ def detect_encoding(b: bytearray | bytes) -> str:
 def format_syntax_error(exc: JSONSyntaxError) -> str:
     """Format JSON syntax error."""
     if exc.end_lineno != exc.lineno:
-        linerange: str = f"{exc.lineno:d}-{exc.end_lineno:d}"
+        line_range: str = f"{exc.lineno:d}-{exc.end_lineno:d}"
     else:
-        linerange = f"{exc.lineno:d}"
+        line_range = f"{exc.lineno:d}"
 
     if exc.end_colno != exc.colno:
-        colrange: str = f"{exc.colno:d}-{exc.end_colno:d}"
+        colum_range: str = f"{exc.colno:d}-{exc.end_colno:d}"
     else:
-        colrange = f"{exc.colno:d}"
+        colum_range = f"{exc.colno:d}"
 
-    selection_length: int = exc.end_offset - exc.offset  # type: ignore
-    caret_line: str = (  # type: ignore
-        " " * (exc.offset - 1) + "^" * selection_length  # type: ignore
-    )
-    exc_type: type[JSONSyntaxError] = type(exc)
-    return f"""\
-  File {exc.filename!r}, line {linerange}, column {colrange}
-    {exc.text}
-    {caret_line}
-{exc_type.__module__}.{exc_type.__qualname__}: {exc.msg}\
-"""
+    caret_indent: str = " " * (exc.offset - 1)  # type: ignore
+    caret_selection: str = "^" * (exc.end_offset - exc.offset)  # type: ignore
+    return dedent(f"""\
+      File "{exc.filename}", line {line_range}, column {colum_range}
+        {exc.text}
+        {caret_indent}{caret_selection}
+    {exc.__module__}.{type(exc).__qualname__}: {exc.msg}\
+    """)
 
 
 def read(
