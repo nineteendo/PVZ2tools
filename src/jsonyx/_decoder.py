@@ -76,8 +76,7 @@ def _unescape_unicode(filename: str, s: str, end: int) -> int:
             pass
 
     msg: str = "Expecting 4 hex digits"
-    # TODO(Nice Zombies): pass offset (-4)
-    raise _errmsg(msg, filename, s, end, end + 4)
+    raise _errmsg(msg, filename, s, end, -4)
 
 
 try:
@@ -97,21 +96,25 @@ class JSONSyntaxError(SyntaxError):
     """JSON syntax error."""
 
     def __init__(  # pylint: disable=R0913
-        self, msg: str, filename: str, doc: str, start: int, end: int = -1,
+        self, msg: str, filename: str, doc: str, start: int, end: int = 0,
     ) -> None:
         """Create new JSON syntax error."""
-        if end == -1:
-            # TODO(Nice Zombies): end < -1 for offset on the same line
-            end = start + 1
-
         lineno: int = doc.count("\n", 0, start) + 1
-        self.colno: int = start - doc.rfind("\n", 0, start)
-        self.end_colno: int = self.colno + end - start
+        colno: int = start - doc.rfind("\n", 0, start)
+        if end > 0:
+            end_lineno: int = doc.count("\n", 0, end) + 1
+            end_colno: int = end - doc.rfind("\n", 0, end)
+        else:
+            end_lineno = lineno
+            end_colno = colno - end
+            end = start + max(1, -end)
+
         offset, text, end_offset = _get_err_context(doc, start, end)
-        # TODO(Nice Zombies): save end_lineno
         super().__init__(
-            msg, (filename, lineno, offset, text, lineno, end_offset),
+            msg, (filename, lineno, offset, text, end_lineno, end_offset),
         )
+        self.colno: int = colno
+        self.end_colno: int = end_colno
 
     def __str__(self) -> str:
         """Convert to string."""
@@ -201,7 +204,7 @@ except ImportError:
                         raise _errmsg(msg, filename, s, str_idx, end)
 
                     msg = "Unescaped control character"
-                    raise _errmsg(msg, filename, s, end)
+                    raise _errmsg(msg, filename, s, end, end + 1)
 
                 end += 1
                 try:
@@ -322,7 +325,9 @@ except ImportError:
 
                     if not allow_trailing_comma:
                         msg = "Trailing comma is not allowed"
-                        raise _errmsg(msg, filename, s, comma_idx)
+                        raise _errmsg(
+                            msg, filename, s, comma_idx, comma_idx + 1,
+                        )
 
                     return result, end + 1
 
@@ -374,7 +379,9 @@ except ImportError:
                 if nextchar == "]":
                     if not allow_trailing_comma:
                         msg = "Trailing comma is not allowed"
-                        raise _errmsg(msg, filename, s, comma_idx)
+                        raise _errmsg(
+                            msg, filename, s, comma_idx, comma_idx + 1,
+                        )
 
                     return values, end + 1
 

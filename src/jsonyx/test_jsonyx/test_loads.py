@@ -23,14 +23,15 @@ if TYPE_CHECKING:
 
 def _check_syntax_err(
     exc_info: pytest.ExceptionInfo[Any], msg: str, colno: int,
-    end_colno: int = -1,
+    end_colno: int = 0,
 ) -> None:
     exc: Any = exc_info.value
-    if end_colno == -1:
-        end_colno = colno + 1
+    if not end_colno:
+        end_colno = colno
 
     assert exc.msg == msg
     assert exc.lineno == 1
+    assert exc.end_lineno == 1
     assert exc.colno == colno
     assert exc.end_colno == end_colno
 
@@ -241,9 +242,9 @@ def test_string(json: ModuleType, s: str, expected: Any) -> None:
 @pytest.mark.parametrize(("s", "msg", "colno", "end_colno"), [
     ('"foo', "Unterminated string", 1, 5),
     ('"foo\n', "Unterminated string", 1, 5),
-    ('"\b"', "Unescaped control character", 2, -1),
-    ('"\\', "Expecting escaped character", 3, -1),
-    ('"\\\n', "Expecting escaped character", 3, -1),
+    ('"\b"', "Unescaped control character", 2, 3),
+    ('"\\', "Expecting escaped character", 3, 0),
+    ('"\\\n', "Expecting escaped character", 3, 0),
     (r'"\a"', "Invalid backslash escape", 2, 4),
     (r'"\u"', "Expecting 4 hex digits", 4, 8),
     (r'"\u0xff"', "Expecting 4 hex digits", 4, 8),
@@ -342,10 +343,10 @@ def test_array_comments(json: ModuleType, s: str, expected: Any) -> None:
 @pytest.mark.parametrize(("s", "msg", "colno", "end_colno"), [
     ("[", "Unterminated array", 1, 2),
     ("[0", "Unterminated array", 1, 3),
-    ("[1-2-3]", "Expecting comma", 3, -1),
-    ("[1 2 3]", "Missing comma's are not allowed", 3, -1),
+    ("[1-2-3]", "Expecting comma", 3, 0),
+    ("[1 2 3]", "Missing comma's are not allowed", 3, 0),
     ("[0,", "Unterminated array", 1, 4),
-    ("[0,]", "Trailing comma is not allowed", 3, -1),
+    ("[0,]", "Trailing comma is not allowed", 3, 4),
 ])
 def test_invalid_array(
     json: ModuleType, s: str, msg: str, colno: int, end_colno: int,
@@ -435,15 +436,15 @@ def test_object_comments(json: ModuleType, s: str, expected: Any) -> None:
 
 @pytest.mark.parametrize(("s", "msg", "colno", "end_colno"), [
     ("{", "Unterminated object", 1, 2),
-    ("{0: 0}", "Expecting string", 2, -1),
+    ("{0: 0}", "Expecting string", 2, 0),
     ('{"a": 1, "a": 2, "a": 3}', "Duplicate keys are not allowed", 10, 13),
-    ('{"a"}', "Expecting colon", 5, -1),
+    ('{"a"}', "Expecting colon", 5, 0),
     ('{"a": 0', "Unterminated object", 1, 8),
-    ('{"a": 0"b": 0"c": 0}', "Expecting comma", 8, -1),
-    ('{"a": 0 "b": 0 "c": 0}', "Missing comma's are not allowed", 8, -1),
-    ('{"a": 1, 2, 3}', "Expecting string", 10, -1),
+    ('{"a": 0"b": 0"c": 0}', "Expecting comma", 8, 0),
+    ('{"a": 0 "b": 0 "c": 0}', "Missing comma's are not allowed", 8, 0),
+    ('{"a": 1, 2, 3}', "Expecting string", 10, 0),
     ('{"a": 0,', "Unterminated object", 1, 9),
-    ('{"a": 0,}', "Trailing comma is not allowed", 8, -1),
+    ('{"a": 0,}', "Trailing comma is not allowed", 8, 9),
 ])
 def test_invalid_object(
     json: ModuleType, s: str, msg: str, colno: int, end_colno: int,

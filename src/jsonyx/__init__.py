@@ -85,6 +85,8 @@ class Decoder:
 
         if not isinstance(s, str):
             s = s.decode(detect_encoding(s), self._errors)
+            # Normalize newlines
+            s = s.replace("\r\n", "\n").replace("\r", "\n")
         elif s.startswith("\ufeff"):
             msg: str = "Unexpected UTF-8 BOM"
             raise JSONSyntaxError(msg, filename, s, 0)
@@ -201,14 +203,23 @@ def detect_encoding(b: bytearray | bytes) -> str:
 
 def format_syntax_error(exc: JSONSyntaxError) -> str:
     """Format JSON syntax error."""
+    if exc.end_lineno != exc.lineno:
+        linerange: str = f"{exc.lineno:d}-{exc.end_lineno:d}"
+    else:
+        linerange = f"{exc.lineno:d}"
+
+    if exc.end_colno != exc.colno:
+        colrange: str = f"{exc.colno:d}-{exc.end_colno:d}"
+    else:
+        colrange = f"{exc.colno:d}"
+
     selection_length: int = exc.end_offset - exc.offset  # type: ignore
     caret_line: str = (  # type: ignore
         " " * (exc.offset - 1) + "^" * selection_length  # type: ignore
     )
     exc_type: type[JSONSyntaxError] = type(exc)
-    # TODO(Nice Zombies): include exc.end_lineno and exc.end_colno
     return f"""\
-  File {exc.filename!r}, line {exc.lineno:d}, column {exc.colno:d}
+  File {exc.filename!r}, line {linerange}, column {colrange}
     {exc.text}
     {caret_line}
 {exc_type.__module__}.{exc_type.__qualname__}: {exc.msg}\

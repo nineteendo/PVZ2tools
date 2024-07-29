@@ -340,7 +340,9 @@ escape_unicode(PyObject *pystr)
         ENCODE_OUTPUT;
     } else {
         Py_UCS4 *output = PyUnicode_4BYTE_DATA(rval);
+#ifdef Py_DEBUG
         assert(kind == PyUnicode_4BYTE_KIND);
+#endif
         ENCODE_OUTPUT;
     }
 #undef ENCODE_OUTPUT
@@ -419,7 +421,7 @@ scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, int al
                         raise_errmsg("Unterminated string", pyfilename, pystr, begin, next);
                     }
                     else {
-                        raise_errmsg("Unescaped control character", pyfilename, pystr, next, -1);
+                        raise_errmsg("Unescaped control character", pyfilename, pystr, next, next + 1);
                     }
                     goto bail;
                 }
@@ -449,13 +451,13 @@ scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, int al
                 goto bail;
             }
         }
-        next++;
         if (c == '"') {
             end = next;
             break;
         }
+        next++;
         if (next == len) {
-            raise_errmsg("Expecting escaped character", pyfilename, pystr, next, -1);
+            raise_errmsg("Expecting escaped character", pyfilename, pystr, next, 0);
             goto bail;
         }
         c = PyUnicode_READ(kind, buf, next);
@@ -473,7 +475,7 @@ scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, int al
                 case 't': c = '\t'; break;
                 default:
                     if (c == '\n') {
-                        raise_errmsg("Expecting escaped character", pyfilename, pystr, end - 1, -1);
+                        raise_errmsg("Expecting escaped character", pyfilename, pystr, end - 1, 0);
                     }
                     else {
                         raise_errmsg("Invalid backslash escape", pyfilename, pystr, end - 2, end);
@@ -486,7 +488,7 @@ scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, int al
             next++;
             end = next + 4;
             if (end > len) {
-                raise_errmsg("Expecting 4 hex digits", pyfilename, pystr, next, next + 4);
+                raise_errmsg("Expecting 4 hex digits", pyfilename, pystr, next, -4);
                 goto bail;
             }
             /* Decode 4 hex digits */
@@ -504,7 +506,7 @@ scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, int al
                     case 'F':
                         c |= (digit - 'A' + 10); break;
                     default:
-                        raise_errmsg("Expecting 4 hex digits", pyfilename, pystr, end - 4, end);
+                        raise_errmsg("Expecting 4 hex digits", pyfilename, pystr, end - 4, -4);
                         goto bail;
                 }
             }
@@ -514,7 +516,7 @@ scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, int al
                     PyUnicode_READ(kind, buf, next++) == '\\' &&
                     PyUnicode_READ(kind, buf, next++) == 'u') {
                     if (end + 6 > len) {
-                        raise_errmsg("Expecting 4 hex digits", pyfilename, pystr, end + 2, end + 6);
+                        raise_errmsg("Expecting 4 hex digits", pyfilename, pystr, end + 2, -4);
                         goto bail;
                     }
                     Py_UCS4 c2 = 0;
@@ -533,7 +535,7 @@ scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, int al
                             case 'F':
                                 c2 |= (digit - 'A' + 10); break;
                             default:
-                                raise_errmsg("Expecting 4 hex digits", pyfilename, pystr, end + 2, end + 6);
+                                raise_errmsg("Expecting 4 hex digits", pyfilename, pystr, end + 2, -4);
                                 goto bail;
                         }
                     }
@@ -561,8 +563,11 @@ scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, int al
         }
     }
 
+#ifdef Py_DEBUG
+    assert(end < len && PyUnicode_READ(kind, str, end) == '"');
+#endif
     rval = _PyUnicodeWriter_Finish(&writer);
-    *next_end_ptr = end;
+    *next_end_ptr = end + 1;
     return rval;
 
 bail:
@@ -688,7 +693,7 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
 
             /* read key */
             if (PyUnicode_READ(kind, str, idx) != '"') {
-                raise_errmsg("Expecting string", pyfilename, pystr, idx, -1);
+                raise_errmsg("Expecting string", pyfilename, pystr, idx, 0);
                 goto bail;
             }
             key = scanstring_unicode(pyfilename, pystr, idx + 1, s->allow_surrogates, &next_idx);
@@ -715,7 +720,7 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
                 goto bail;
             }
             if (idx > end_idx || PyUnicode_READ(kind, str, idx) != ':') {
-                raise_errmsg("Expecting colon", pyfilename, pystr, colon_idx, -1);
+                raise_errmsg("Expecting colon", pyfilename, pystr, colon_idx, 0);
                 goto bail;
             }
             idx++;
@@ -757,17 +762,17 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
                 break;
             }
             else if (idx == comma_idx) {
-                raise_errmsg("Expecting comma", pyfilename, pystr, comma_idx, -1);
+                raise_errmsg("Expecting comma", pyfilename, pystr, comma_idx, 0);
                 goto bail;
             }
             else if (!s->allow_missing_commas) {
-                raise_errmsg("Missing comma's are not allowed", pyfilename, pystr, comma_idx, -1);
+                raise_errmsg("Missing comma's are not allowed", pyfilename, pystr, comma_idx, 0);
                 goto bail;
             }
 
             if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == '}') {
                 if (!s->allow_trailing_comma) {
-                    raise_errmsg("Trailing comma is not allowed", pyfilename, pystr, comma_idx, -1);
+                    raise_errmsg("Trailing comma is not allowed", pyfilename, pystr, comma_idx, comma_idx + 1);
                     goto bail;
                 }
                 break;
@@ -775,6 +780,9 @@ _parse_object_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, 
         }
     }
 
+#ifdef Py_DEBUG
+    assert(idx <= end_idx && PyUnicode_READ(kind, str, idx) == '}');
+#endif
     *next_idx_ptr = idx + 1;
     return rval;
 bail:
@@ -857,17 +865,17 @@ _parse_array_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, P
                 break;
             }
             else if (idx == comma_idx) {
-                raise_errmsg("Expecting comma", pyfilename, pystr, comma_idx, -1);
+                raise_errmsg("Expecting comma", pyfilename, pystr, comma_idx, 0);
                 goto bail;
             }
             else if (!s->allow_missing_commas) {
-                raise_errmsg("Missing comma's are not allowed", pyfilename, pystr, comma_idx, -1);
+                raise_errmsg("Missing comma's are not allowed", pyfilename, pystr, comma_idx, 0);
                 goto bail;
             }
 
             if (idx <= end_idx && PyUnicode_READ(kind, str, idx) == ']') {
                 if (!s->allow_trailing_comma) {
-                    raise_errmsg("Trailing comma is not allowed", pyfilename, pystr, comma_idx, -1);
+                    raise_errmsg("Trailing comma is not allowed", pyfilename, pystr, comma_idx, comma_idx + 1);
                     goto bail;
                 }
                 break;
@@ -875,11 +883,9 @@ _parse_array_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, P
         }
     }
 
-    /* verify that idx < end_idx, PyUnicode_READ(kind, str, idx) should be ']' */
-    if (idx > end_idx || PyUnicode_READ(kind, str, idx) != ']') {
-        raise_errmsg("Expecting value", pyfilename, pystr, end_idx, -1);
-        goto bail;
-    }
+#ifdef Py_DEBUG
+    assert(idx <= end_idx && PyUnicode_READ(kind, str, idx) == ']');
+#endif
     *next_idx_ptr = idx + 1;
     return rval;
 bail:
@@ -913,7 +919,7 @@ _match_number_unicode(PyScannerObject *s, PyObject *pyfilename, PyObject *pystr,
     if (PyUnicode_READ(kind, str, idx) == '-') {
         idx++;
         if (idx > end_idx) {
-            raise_errmsg("Expecting value", pyfilename, pystr, start, -1);
+            raise_errmsg("Expecting value", pyfilename, pystr, start, 0);
             return NULL;
         }
     }
@@ -929,7 +935,7 @@ _match_number_unicode(PyScannerObject *s, PyObject *pyfilename, PyObject *pystr,
     }
     /* no integer digits, error */
     else {
-        raise_errmsg("Expecting value", pyfilename, pystr, start, -1);
+        raise_errmsg("Expecting value", pyfilename, pystr, start, 0);
         return NULL;
     }
 
@@ -1029,7 +1035,7 @@ scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyOb
         return NULL;
     }
     if (idx >= length) {
-        raise_errmsg("Expecting value", pyfilename, pystr, idx, -1);
+        raise_errmsg("Expecting value", pyfilename, pystr, idx, 0);
         return NULL;
     }
 
@@ -1179,7 +1185,7 @@ scanner_call(PyScannerObject *self, PyObject *args, PyObject *kwds)
         return NULL;
     }
     if (idx < PyUnicode_GET_LENGTH(pystr)) {
-        raise_errmsg("Expecting end of file", pyfilename, pystr, idx, -1);
+        raise_errmsg("Expecting end of file", pyfilename, pystr, idx, 0);
         return NULL;
     }
     return rval;
