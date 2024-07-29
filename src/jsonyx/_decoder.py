@@ -5,7 +5,7 @@ from __future__ import annotations
 __all__: list[str] = ["DuplicateKey", "JSONSyntaxError", "make_scanner"]
 
 import re
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from math import isinf
 from re import DOTALL, MULTILINE, VERBOSE, Match, RegexFlag
 from shutil import get_terminal_size
@@ -405,9 +405,14 @@ except ImportError:
                 integer, frac, exp = number.groups()
                 end = number.end()
                 if frac or exp:
-                    # TODO(Nice Zombies): catch decimal.InvalidOperation
-                    # ArithmeticError in C
-                    result = parse_float(integer + (frac or "") + (exp or ""))
+                    try:
+                        result = parse_float(
+                            integer + (frac or "") + (exp or ""),
+                        )
+                    except InvalidOperation:
+                        msg = "Number is too big"
+                        raise _errmsg(msg, filename, s, idx, end) from None
+
                     if not use_decimal and isinf(result):
                         msg = "Big numbers require decimal"
                         raise _errmsg(msg, filename, s, idx, end)

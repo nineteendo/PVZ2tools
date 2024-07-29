@@ -181,9 +181,18 @@ def test_big_number_float(json: ModuleType, s: str) -> None:
     with pytest.raises(json.JSONSyntaxError) as exc_info:
         json.loads(s)
 
-    _check_syntax_err(
-        exc_info, "Big numbers require decimal", 1, len(s) + 1,
-    )
+    _check_syntax_err(exc_info, "Big numbers require decimal", 1, len(s) + 1)
+
+
+@pytest.mark.parametrize("s", [
+    "1e1000000000000000000", "-1e1000000000000000000",
+])
+def test_huge_number(json: ModuleType, s: str) -> None:
+    """Test huge JSON number with decimal."""
+    with pytest.raises(json.JSONSyntaxError) as exc_info:
+        json.loads(s, use_decimal=True)
+
+    _check_syntax_err(exc_info, "Number is too big", 1, len(s) + 1)
 
 
 @pytest.mark.parametrize(("s", "expected"), [

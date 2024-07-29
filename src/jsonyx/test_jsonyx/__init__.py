@@ -22,7 +22,9 @@ from jsonyx import JSONSyntaxError, detect_encoding
 if TYPE_CHECKING:
     from types import ModuleType
 
-cjson: ModuleType | None = import_fresh_module("jsonyx", fresh=["_jsonyx"])
+cjson: ModuleType | None = import_fresh_module(
+    "jsonyx", fresh=["_jsonyx.__init__"],
+)
 pyjson: ModuleType | None = import_fresh_module("jsonyx", blocked=["_jsonyx"])
 if cjson:
     # JSONSyntaxError is cached inside the _jsonyx module

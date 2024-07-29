@@ -968,6 +968,11 @@ _match_number_unicode(PyScannerObject *s, PyObject *pyfilename, PyObject *pystr,
         if (numstr == NULL)
             return NULL;
         rval = PyObject_CallOneArg(s->Decimal, numstr);
+        if (PyErr_ExceptionMatches(PyExc_ArithmeticError)) {
+            PyErr_Clear();
+            raise_errmsg("Number is too big", pyfilename, pystr, start, idx);
+            return NULL;
+        }
     }
     else {
         Py_ssize_t i, n;
