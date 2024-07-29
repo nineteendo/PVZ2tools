@@ -14,7 +14,7 @@ from jsonyx.allow import (
     TRAILING_COMMA,
 )
 # pylint: disable-next=W0611
-from jsonyx.test_jsonyx import get_json  # type: ignore # noqa: F401
+from jsonyx.test import get_json  # type: ignore # noqa: F401
 from typing_extensions import Any  # type: ignore
 
 if TYPE_CHECKING:
