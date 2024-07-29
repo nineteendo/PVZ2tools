@@ -32,7 +32,7 @@ _ESCAPE_DCT: dict[str, str] = {chr(i): f"\\u{i:04x}" for i in range(0x20)} | {
 }
 
 try:
-    from jsonyx._speedups import encode_basestring, encode_basestring_ascii
+    from _jsonyx import encode_basestring, encode_basestring_ascii
 except ImportError:
     def encode_basestring(s: str, /) -> str:
         """Return the JSON representation of a Python string."""

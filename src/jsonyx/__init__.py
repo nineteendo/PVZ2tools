@@ -42,8 +42,7 @@ if TYPE_CHECKING:
     ] | str]
 
 try:
-    # pylint: disable-next=C0412
-    from jsonyx._speedups import make_encoder
+    from _jsonyx import make_encoder
 except ImportError:
     make_encoder = None
 

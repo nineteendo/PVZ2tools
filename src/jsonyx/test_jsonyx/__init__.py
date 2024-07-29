@@ -22,12 +22,8 @@ from jsonyx import JSONSyntaxError, detect_encoding
 if TYPE_CHECKING:
     from types import ModuleType
 
-cjson: ModuleType | None = import_fresh_module(
-    "jsonyx", fresh=["jsonyx._speedups"],
-)
-pyjson: ModuleType | None = import_fresh_module(
-    "jsonyx", blocked=["jsonyx._speedups"],
-)
+cjson: ModuleType | None = import_fresh_module("jsonyx", fresh=["_jsonyx"])
+pyjson: ModuleType | None = import_fresh_module("jsonyx", blocked=["_jsonyx"])
 if cjson:
     # JSONSyntaxError is cached inside the _jsonyx module
     cjson.JSONSyntaxError = JSONSyntaxError  # type: ignore
@@ -38,7 +34,7 @@ def get_json(request: pytest.FixtureRequest) -> ModuleType:
     """Get JSON module."""
     json: ModuleType | None = request.param
     if json is None:
-        pytest.skip("requires jsonyx._speedups")
+        pytest.skip("requires _jsonyx")
 
     return json
 
