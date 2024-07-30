@@ -6,10 +6,9 @@ __all__: list[str] = ["make_encoder"]
 
 import re
 from decimal import Decimal
-from functools import partial
 from io import StringIO
 from math import inf
-from re import Match, Pattern
+from re import Match
 from typing import TYPE_CHECKING
 
 from typing_extensions import Any  # type: ignore
@@ -17,9 +16,6 @@ from typing_extensions import Any  # type: ignore
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
-
-_ESCAPE: Pattern[str] = re.compile(r'["\\\x00-\x1f]')
-_ESCAPE_ASCII: Pattern[str] = re.compile(r'(?:["\\]|[^\x20-\x7e])')
 _ESCAPE_DCT: dict[str, str] = {chr(i): f"\\u{i:04x}" for i in range(0x20)} | {
     '"': '\\"',
     "\\": "\\\\",
@@ -30,38 +26,12 @@ _ESCAPE_DCT: dict[str, str] = {chr(i): f"\\u{i:04x}" for i in range(0x20)} | {
     "\t": "\\t",
 }
 
-try:
-    from _jsonyx import encode_basestring, encode_basestring_ascii
-except ImportError:
-    def encode_basestring(s: str, /) -> str:
-        """Return the JSON representation of a Python string."""
-        return f'"{_ESCAPE.sub(lambda match: _ESCAPE_DCT[match.group()], s)}"'
-
-    def encode_basestring_ascii(
-        allow_surrogates: bool, s: str, /,  # noqa: FBT001
-    ) -> str:
-        """Return the ASCII-only JSON representation of a Python string."""
-        def replace(match: Match[str]) -> str:
-            s: str = match.group()
-            try:
-                return _ESCAPE_DCT[s]
-            except KeyError:
-                uni: int = ord(s)
-                if uni >= 0x10000:
-                    # surrogate pair
-                    uni -= 0x10000
-                    uni1: int = 0xd800 | ((uni >> 10) & 0x3ff)
-                    uni2: int = 0xdc00 | (uni & 0x3ff)
-                    return f"\\u{uni1:04x}\\u{uni2:04x}"
-
-                if 0xd800 <= uni <= 0xdfff and not allow_surrogates:
-                    msg: str = "Surrogates are not allowed"
-                    raise ValueError(msg) from None
-
-                return f"\\u{uni:04x}"
-
-        return f'"{_ESCAPE_ASCII.sub(replace, s)}"'
-
+_escape: Callable[[Callable[[Match[str]], str], str], str] = re.compile(
+    r'["\\\x00-\x1f]',
+).sub
+_escape_ascii: Callable[[Callable[[Match[str]], str], str], str] = re.compile(
+    r'(?:["\\]|[^\x20-\x7e])',
+).sub
 
 try:
     from _jsonyx import make_encoder
@@ -80,14 +50,38 @@ except ImportError:
         trailing_comma: bool,  # noqa: FBT001
     ) -> Callable[[Any], str]:
         """Make JSON encoder."""
-        if not ensure_ascii:
-            encode_string: Callable[[str], str] = encode_basestring
-        else:
-            encode_string = partial(encode_basestring_ascii, allow_surrogates)
-
         float_repr: Callable[[float], str] = float.__repr__
         int_repr: Callable[[int], str] = int.__repr__
         markers: dict[int, Any] = {}
+
+        if not ensure_ascii:
+            def replace(match: Match[str]) -> str:
+                return _ESCAPE_DCT[match.group()]
+
+            def encode_string(s: str) -> str:
+                return f'"{_escape(replace, s)}"'
+        else:
+            def replace(match: Match[str]) -> str:
+                s: str = match.group()
+                try:
+                    return _ESCAPE_DCT[s]
+                except KeyError:
+                    uni: int = ord(s)
+                    if uni >= 0x10000:
+                        # surrogate pair
+                        uni -= 0x10000
+                        uni1: int = 0xd800 | ((uni >> 10) & 0x3ff)
+                        uni2: int = 0xdc00 | (uni & 0x3ff)
+                        return f"\\u{uni1:04x}\\u{uni2:04x}"
+
+                    if 0xd800 <= uni <= 0xdfff and not allow_surrogates:
+                        msg: str = "Surrogates are not allowed"
+                        raise ValueError(msg) from None
+
+                    return f"\\u{uni:04x}"
+
+            def encode_string(s: str) -> str:
+                return f'"{_escape_ascii(replace, s)}"'
 
         def floatstr(num: float) -> str:
             # pylint: disable-next=R0124

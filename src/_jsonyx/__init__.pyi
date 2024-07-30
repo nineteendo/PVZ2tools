@@ -1,12 +1,6 @@
 # Copyright (C) 2024 Nice Zombies
 """JSON speedups."""
-__all__: list[str] = [
-    "DuplicateKey",
-    "encode_basestring",
-    "encode_basestring_ascii",
-    "make_encoder",
-    "make_scanner",
-]
+__all__: list[str] = ["DuplicateKey", "make_encoder", "make_scanner"]
 
 from collections.abc import Callable
 from decimal import Decimal
@@ -16,16 +10,6 @@ from typing_extensions import Any  # type: ignore
 
 class DuplicateKey(str):  # noqa: SLOT000
     """Duplicate key."""
-
-
-def encode_basestring(s: str, /) -> str:
-    """Return the JSON representation of a Python string."""
-
-
-def encode_basestring_ascii(
-    allow_surrogates: bool, s: str, /,  # noqa: FBT001
-) -> str:
-    """Return the ASCII-only JSON representation of a Python string."""
 
 
 def make_encoder(  # noqa: PLR0917, PLR0913

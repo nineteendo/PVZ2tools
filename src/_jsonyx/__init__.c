@@ -61,8 +61,6 @@ static PyTypeObject PyDuplicateKeyType = {
 static PyObject *
 ascii_escape_unicode(PyObject *pystr, int allow_surrogates);
 static PyObject *
-py_encode_basestring_ascii(PyObject *self, PyObject *args);
-static PyObject *
 scan_once_unicode(PyScannerObject *s, PyObject *memo, PyObject *pyfilename, PyObject *pystr, Py_ssize_t idx, Py_ssize_t *next_idx_ptr);
 static PyObject *
 scanner_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
@@ -576,51 +574,6 @@ bail:
     *next_end_ptr = -1;
     _PyUnicodeWriter_Dealloc(&writer);
     return NULL;
-}
-
-PyDoc_STRVAR(pydoc_encode_basestring_ascii,
-    "encode_basestring_ascii(bool, string) -> string\n"
-    "\n"
-    "Return the ASCII-only JSON representation of a Python string"
-);
-
-static PyObject *
-py_encode_basestring_ascii(PyObject *self, PyObject *args)
-{
-    PyObject *pystr;
-    int allow_surrogates;
-
-    if (!PyArg_ParseTuple(args, "pU:encode_basestring_ascii",
-        &allow_surrogates, &pystr))
-    {
-        return NULL;
-    }
-    return ascii_escape_unicode(pystr, allow_surrogates);
-}
-
-
-PyDoc_STRVAR(pydoc_encode_basestring,
-    "encode_basestring(string) -> string\n"
-    "\n"
-    "Return the JSON representation of a Python string"
-);
-
-static PyObject *
-py_encode_basestring(PyObject* Py_UNUSED(self), PyObject *pystr)
-{
-    PyObject *rval;
-    /* Return a JSON representation of a Python string */
-    /* METH_O */
-    if (PyUnicode_Check(pystr)) {
-        rval = escape_unicode(pystr);
-    }
-    else {
-        PyErr_Format(PyExc_TypeError,
-                     "first argument must be a string, not %.80s",
-                     Py_TYPE(pystr)->tp_name);
-        return NULL;
-    }
-    return rval;
 }
 
 static void
@@ -1761,18 +1714,6 @@ static PyType_Spec PyEncoderType_spec = {
     .slots = PyEncoderType_slots
 };
 
-static PyMethodDef speedups_methods[] = {
-    {"encode_basestring_ascii",
-        (PyCFunction)py_encode_basestring_ascii,
-        METH_VARARGS,
-        pydoc_encode_basestring_ascii},
-    {"encode_basestring",
-        (PyCFunction)py_encode_basestring,
-        METH_O,
-        pydoc_encode_basestring},
-    {NULL, NULL, 0, NULL}
-};
-
 PyDoc_STRVAR(module_doc,
 "json speedups\n");
 
@@ -1828,7 +1769,6 @@ static struct PyModuleDef jsonmodule = {
     .m_base = PyModuleDef_HEAD_INIT,
     .m_name = "_jsonyx",
     .m_doc = module_doc,
-    .m_methods = speedups_methods,
     .m_slots = _json_slots,
 };
 
