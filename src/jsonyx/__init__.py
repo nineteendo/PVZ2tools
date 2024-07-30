@@ -21,7 +21,6 @@ from codecs import (
     BOM_UTF8, BOM_UTF16_BE, BOM_UTF16_LE, BOM_UTF32_BE, BOM_UTF32_LE,
 )
 from decimal import Decimal
-from io import StringIO
 from os import fspath
 from os.path import realpath
 from pathlib import Path
@@ -62,7 +61,7 @@ class Decoder:
 
     def read(self, filename: StrPath) -> Any:
         """Deserialize a JSON file to a Python object."""
-        self.loads(Path(filename).read_bytes(), filename=filename)
+        return self.loads(Path(filename).read_bytes(), filename=filename)
 
     def load(self, fp: SupportsRead[bytes | str]) -> Any:
         """Deserialize an open JSON file to a Python object."""
