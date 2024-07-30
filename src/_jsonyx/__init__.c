@@ -1598,7 +1598,7 @@ encoder_listencode_dict(PyEncoderObject *s, PyObject *markers, _PyUnicodeWriter 
     if (s->indent != Py_None) {
         Py_CLEAR(new_newline_indent);
         Py_CLEAR(separator_indent);
-        if (s->trailing_comma && _PyUnicodeWriter_WriteStr(writer, s->item_separator) < 0 ||
+        if ((s->trailing_comma && _PyUnicodeWriter_WriteStr(writer, s->item_separator) < 0) ||
             _PyUnicodeWriter_WriteStr(writer, newline_indent) < 0)
         {
             goto bail;
@@ -1686,7 +1686,7 @@ encoder_listencode_list(PyEncoderObject *s, PyObject *markers, _PyUnicodeWriter 
     if (s->indent != Py_None) {
         Py_CLEAR(new_newline_indent);
         Py_CLEAR(separator_indent);
-        if (s->trailing_comma && _PyUnicodeWriter_WriteStr(writer, s->item_separator) < 0 ||
+        if ((s->trailing_comma && _PyUnicodeWriter_WriteStr(writer, s->item_separator) < 0) ||
             _PyUnicodeWriter_WriteStr(writer, newline_indent) < 0)
         {
             goto bail;
