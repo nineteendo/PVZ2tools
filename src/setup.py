@@ -14,7 +14,9 @@ if __name__ == "__main__":
         name="pyvz2-dependencies",
         version="0.0.1",
         packages=find_namespace_packages(),
-        ext_modules=[Extension("_jsonyx.__init__", ["_jsonyx/__init__.c"])],
+        ext_modules=[Extension(
+            "_jsonyx.__init__", ["_jsonyx/__init__.c"], optional=True,
+        )],
         # TODO(Nice Zombies): add jsonyx as a dependency
         install_requires=["typing_extensions"],
     )

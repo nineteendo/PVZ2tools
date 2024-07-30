@@ -98,7 +98,6 @@ class Decoder:
 class Encoder:
     """JSON encoder."""
 
-    # TODO(Nice Zombies): add trailing_comma=True
     # pylint: disable-next=R0913
     def __init__(  # noqa: PLR0913
         self,

@@ -1,15 +1,19 @@
 name: pytest
 on:
   push:
-    paths: 'src/**'
+    paths: src/**
   pull_request:
-    paths: 'src/**'
+    paths: src/**
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version:
+        - "3.10"
+        - "3.11"
+        - "3.12"
+        - "3.13"
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
@@ -17,9 +21,9 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         allow-prereleases: true
-        cache: 'pip'
+        cache: pip
     - name: Install dependencies
-      run: pip install src/
+      run: pip install -v src/
     - name: Install test dependencies
       run: pip install -r .github/workflows/requirements.txt
     - name: Test with pytest
