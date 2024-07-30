@@ -38,6 +38,7 @@ def make_encoder(  # noqa: PLR0917, PLR0913
     allow_surrogates: bool,  # noqa: FBT001
     ensure_ascii: bool,  # noqa: FBT001
     sort_keys: bool,  # noqa: FBT001
+    trailing_comma: bool,  # noqa: FBT001
 ) -> Callable[[Any], str]:
     """Make JSON encoder."""
 

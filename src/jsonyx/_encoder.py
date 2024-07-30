@@ -75,6 +75,7 @@ def make_writer(  # noqa: C901, PLR0915, PLR0917, PLR0913
     allow_surrogates: bool,  # noqa: FBT001
     ensure_ascii: bool,  # noqa: FBT001
     sort_keys: bool,  # noqa: FBT001
+    trailing_comma: bool,  # noqa: FBT001
 ) -> Callable[[Any, SupportsWrite[str]], None]:
     """Make JSON interencode."""
     if not ensure_ascii:
@@ -134,6 +135,9 @@ def make_writer(  # noqa: C901, PLR0915, PLR0917, PLR0913
 
         del markers[markerid]
         if indent is not None:
+            if trailing_comma:
+                write(item_separator)
+
             write(old_indent)
 
         write("]")
@@ -177,6 +181,9 @@ def make_writer(  # noqa: C901, PLR0915, PLR0917, PLR0913
 
         del markers[markerid]
         if indent is not None:
+            if trailing_comma:
+                write(item_separator)
+
             write(old_indent)
 
         write("}")

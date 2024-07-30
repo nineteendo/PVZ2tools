@@ -110,6 +110,7 @@ class Encoder:
         item_separator: str = ", ",
         key_separator: str = ": ",
         sort_keys: bool = False,
+        trailing_comma: bool = False,
     ) -> None:
         """Create new JSON encoder."""
         allow_nan_and_infinity: bool = "nan_and_infinity" in allow
@@ -142,13 +143,14 @@ class Encoder:
             self._encoder = make_encoder(
                 encode_decimal, indent, end, item_separator, key_separator,
                 allow_nan_and_infinity, allow_surrogates, ensure_ascii,
-                sort_keys,
+                sort_keys, trailing_comma,
             )
 
         # TODO(Nice Zombies): implement writer in C
         self._writer: Callable[[Any, SupportsWrite[str]], None] = make_writer(
             encode_decimal, indent, end, item_separator, key_separator,
             allow_nan_and_infinity, allow_surrogates, ensure_ascii, sort_keys,
+            trailing_comma,
         )
 
     def write(self, obj: Any, filename: StrPath) -> None:
@@ -270,6 +272,7 @@ def write(  # noqa: PLR0913
     item_separator: str = ", ",
     key_separator: str = ": ",
     sort_keys: bool = False,
+    trailing_comma: bool = False,
 ) -> None:
     """Serialize a Python object to a JSON file."""
     return Encoder(
@@ -280,6 +283,7 @@ def write(  # noqa: PLR0913
         item_separator=item_separator,
         key_separator=key_separator,
         sort_keys=sort_keys,
+        trailing_comma=trailing_comma,
     ).write(obj, filename)
 
 
@@ -295,6 +299,7 @@ def dump(  # noqa: PLR0913
     item_separator: str = ", ",
     key_separator: str = ": ",
     sort_keys: bool = False,
+    trailing_comma: bool = False,
 ) -> None:
     """Serialize a Python object to an open JSON file."""
     Encoder(
@@ -305,6 +310,7 @@ def dump(  # noqa: PLR0913
         item_separator=item_separator,
         key_separator=key_separator,
         sort_keys=sort_keys,
+        trailing_comma=trailing_comma,
     ).dump(obj, fp)
 
 
@@ -319,6 +325,7 @@ def dumps(  # noqa: PLR0913
     item_separator: str = ", ",
     key_separator: str = ": ",
     sort_keys: bool = False,
+    trailing_comma: bool = False,
 ) -> str:
     """Serialize a Python object to a JSON string."""
     return Encoder(
@@ -329,4 +336,5 @@ def dumps(  # noqa: PLR0913
         item_separator=item_separator,
         key_separator=key_separator,
         sort_keys=sort_keys,
+        trailing_comma=trailing_comma,
     ).dumps(obj)

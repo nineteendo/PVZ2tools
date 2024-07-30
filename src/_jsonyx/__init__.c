@@ -42,6 +42,7 @@ typedef struct _PyEncoderObject {
     int allow_surrogates;
     int ensure_ascii;
     int sort_keys;
+    int trailing_comma;
 } PyEncoderObject;
 
 static Py_hash_t duplicatekey_hash(PyUnicodeObject *self) {
@@ -1261,17 +1262,20 @@ encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     static char *kwlist[] = {"encode_decimal", "indent", "end",
                              "item_separator", "key_separator",
                              "allow_nan_and_infinity", "allow_surrogates",
-                             "ensure_ascii", "sort_keys", NULL};
+                             "ensure_ascii", "sort_keys", "trailing_comma",
+                             NULL};
 
     PyEncoderObject *s;
     PyObject *encode_decimal, *indent;
     PyObject *end, *item_separator, *key_separator;
     int allow_nan_and_infinity, allow_surrogates, ensure_ascii, sort_keys;
+    int trailing_comma;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOUUUpppp:make_encoder", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOUUUppppp:make_encoder", kwlist,
         &encode_decimal, &indent,
         &end, &item_separator, &key_separator,
-        &allow_nan_and_infinity, &allow_surrogates, &ensure_ascii, &sort_keys))
+        &allow_nan_and_infinity, &allow_surrogates, &ensure_ascii, &sort_keys,
+        &trailing_comma))
         return NULL;
 
     s = (PyEncoderObject *)type->tp_alloc(type, 0);
@@ -1296,6 +1300,7 @@ encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     s->allow_surrogates = allow_surrogates;
     s->ensure_ascii = ensure_ascii;
     s->sort_keys = sort_keys;
+    s->trailing_comma = trailing_comma;
     return (PyObject *)s;
 
 bail:
@@ -1593,8 +1598,9 @@ encoder_listencode_dict(PyEncoderObject *s, PyObject *markers, _PyUnicodeWriter 
     if (s->indent != Py_None) {
         Py_CLEAR(new_newline_indent);
         Py_CLEAR(separator_indent);
-
-        if (_PyUnicodeWriter_WriteStr(writer, newline_indent) < 0) {
+        if (s->trailing_comma && _PyUnicodeWriter_WriteStr(writer, s->item_separator) < 0 ||
+            _PyUnicodeWriter_WriteStr(writer, newline_indent) < 0)
+        {
             goto bail;
         }
     }
@@ -1680,7 +1686,9 @@ encoder_listencode_list(PyEncoderObject *s, PyObject *markers, _PyUnicodeWriter 
     if (s->indent != Py_None) {
         Py_CLEAR(new_newline_indent);
         Py_CLEAR(separator_indent);
-        if (_PyUnicodeWriter_WriteStr(writer, newline_indent) < 0) {
+        if (s->trailing_comma && _PyUnicodeWriter_WriteStr(writer, s->item_separator) < 0 ||
+            _PyUnicodeWriter_WriteStr(writer, newline_indent) < 0)
+        {
             goto bail;
         }
     }

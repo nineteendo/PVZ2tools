@@ -25,6 +25,7 @@ class JSONNamespace:  # pylint: disable=R0903
     no_commas: bool
     nonstrict: bool
     sort_keys: bool
+    trailing_comma: bool
     use_decimal: bool
 
 
@@ -38,7 +39,9 @@ def register(parser: ArgumentParser) -> None:
     group.add_argument(
         "--indent-tab", action="store_const", const="\t", dest="indent",
     )
-    parser.add_argument("--no-commas", action="store_true")
+    group2 = parser.add_mutually_exclusive_group()
+    group2.add_argument("--no-commas", action="store_true")
+    group2.add_argument("--trailing-comma", action="store_true")
     parser.add_argument("--nonstrict", action="store_true")
     parser.add_argument("--sort-keys", action="store_true")
     parser.add_argument("--use-decimal", action="store_true")
@@ -75,6 +78,7 @@ def run(args: JSONNamespace) -> None:
         ),
         key_separator=":" if args.compact else ": ",
         sort_keys=args.sort_keys,
+        trailing_comma=args.trailing_comma,
     )
 
 
