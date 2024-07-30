@@ -2,11 +2,12 @@
 """JSON encoder."""
 from __future__ import annotations
 
-__all__: list[str] = ["make_writer"]
+__all__: list[str] = ["make_encoder"]
 
 import re
 from decimal import Decimal
 from functools import partial
+from io import StringIO
 from math import inf
 from re import Match, Pattern
 from typing import TYPE_CHECKING
@@ -15,8 +16,6 @@ from typing_extensions import Any  # type: ignore
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
-
-    from _typeshed import SupportsWrite
 
 
 _ESCAPE: Pattern[str] = re.compile(r'["\\\x00-\x1f]')
@@ -64,164 +63,169 @@ except ImportError:
         return f'"{_ESCAPE_ASCII.sub(replace, s)}"'
 
 
-# pylint: disable-next=R0915, R0913, R0914
-def make_writer(  # noqa: C901, PLR0915, PLR0917, PLR0913
-    encode_decimal: Callable[[Decimal], str],
-    indent: str | None,
-    end: str,
-    item_separator: str,
-    key_separator: str,
-    allow_nan_and_infinity: bool,  # noqa: FBT001
-    allow_surrogates: bool,  # noqa: FBT001
-    ensure_ascii: bool,  # noqa: FBT001
-    sort_keys: bool,  # noqa: FBT001
-    trailing_comma: bool,  # noqa: FBT001
-) -> Callable[[Any, SupportsWrite[str]], None]:
-    """Make JSON interencode."""
-    if not ensure_ascii:
-        encode_string: Callable[[str], str] = encode_basestring
-    else:
-        encode_string = partial(encode_basestring_ascii, allow_surrogates)
-
-    float_repr: Callable[[float], str] = float.__repr__
-    int_repr: Callable[[int], str] = int.__repr__
-    markers: dict[int, Any] = {}
-
-    def floatstr(num: float) -> str:
-        # pylint: disable-next=R0124
-        if num != num:  # noqa: PLR0124
-            text = "NaN"
-        elif num == inf:
-            text = "Infinity"
-        elif num == -inf:
-            text = "-Infinity"
+try:
+    from _jsonyx import make_encoder
+except ImportError:
+    # pylint: disable-next=R0915, R0913, R0914
+    def make_encoder(  # noqa: C901, PLR0915, PLR0917, PLR0913
+        encode_decimal: Callable[[Decimal], str],
+        indent: str | None,
+        end: str,
+        item_separator: str,
+        key_separator: str,
+        allow_nan_and_infinity: bool,  # noqa: FBT001
+        allow_surrogates: bool,  # noqa: FBT001
+        ensure_ascii: bool,  # noqa: FBT001
+        sort_keys: bool,  # noqa: FBT001
+        trailing_comma: bool,  # noqa: FBT001
+    ) -> Callable[[Any], str]:
+        """Make JSON encoder."""
+        if not ensure_ascii:
+            encode_string: Callable[[str], str] = encode_basestring
         else:
-            return float_repr(num)
+            encode_string = partial(encode_basestring_ascii, allow_surrogates)
 
-        if not allow_nan_and_infinity:
-            msg: str = f"{num!r} is not allowed"
-            raise ValueError(msg)
+        float_repr: Callable[[float], str] = float.__repr__
+        int_repr: Callable[[int], str] = int.__repr__
+        markers: dict[int, Any] = {}
 
-        return text
-
-    def write_list(
-        lst: list[Any], write: Callable[[str], Any], old_indent: str,
-    ) -> None:
-        if not lst:
-            write("[]")
-            return
-
-        if (markerid := id(lst)) in markers:
-            msg: str = "Unexpected circular reference"
-            raise ValueError(msg)
-
-        markers[markerid] = lst
-        write("[")
-        current_indent: str = old_indent
-        current_item_separator: str = item_separator
-        if indent is not None:
-            current_indent += indent
-            current_item_separator += current_indent
-            write(current_indent)
-
-        first: bool = True
-        for value in lst:
-            if first:
-                first = False
+        def floatstr(num: float) -> str:
+            # pylint: disable-next=R0124
+            if num != num:  # noqa: PLR0124
+                text = "NaN"
+            elif num == inf:
+                text = "Infinity"
+            elif num == -inf:
+                text = "-Infinity"
             else:
-                write(current_item_separator)
+                return float_repr(num)
 
-            write_value(value, write, current_indent)
+            if not allow_nan_and_infinity:
+                msg: str = f"{num!r} is not allowed"
+                raise ValueError(msg)
 
-        del markers[markerid]
-        if indent is not None:
-            if trailing_comma:
-                write(item_separator)
+            return text
 
-            write(old_indent)
+        def write_list(
+            lst: list[Any], write: Callable[[str], Any], old_indent: str,
+        ) -> None:
+            if not lst:
+                write("[]")
+                return
 
-        write("]")
+            if (markerid := id(lst)) in markers:
+                msg: str = "Unexpected circular reference"
+                raise ValueError(msg)
 
-    def write_dict(
-        dct: dict[Any, Any], write: Callable[[str], Any], old_indent: str,
-    ) -> None:
-        if not dct:
-            write("{}")
-            return
+            markers[markerid] = lst
+            write("[")
+            current_indent: str = old_indent
+            current_item_separator: str = item_separator
+            if indent is not None:
+                current_indent += indent
+                current_item_separator += current_indent
+                write(current_indent)
 
-        if (markerid := id(dct)) in markers:
-            msg: str = "Unexpected circular reference"
-            raise ValueError(msg)
+            first: bool = True
+            for value in lst:
+                if first:
+                    first = False
+                else:
+                    write(current_item_separator)
 
-        markers[markerid] = dct
-        write("{")
-        current_indent: str = old_indent
-        current_item_separator: str = item_separator
-        if indent is not None:
-            current_indent += indent
-            current_item_separator += current_indent
-            write(current_indent)
+                write_value(value, write, current_indent)
 
-        first: bool = True
-        items: Iterable[tuple[Any, Any]] = (
-            sorted(dct.items()) if sort_keys else dct.items()
-        )
-        for key, value in items:
-            if not isinstance(key, str):
-                msg = f"Keys must be str, not {type(key).__name__}"
+            del markers[markerid]
+            if indent is not None:
+                if trailing_comma:
+                    write(item_separator)
+
+                write(old_indent)
+
+            write("]")
+
+        def write_dict(
+            dct: dict[Any, Any], write: Callable[[str], Any], old_indent: str,
+        ) -> None:
+            if not dct:
+                write("{}")
+                return
+
+            if (markerid := id(dct)) in markers:
+                msg: str = "Unexpected circular reference"
+                raise ValueError(msg)
+
+            markers[markerid] = dct
+            write("{")
+            current_indent: str = old_indent
+            current_item_separator: str = item_separator
+            if indent is not None:
+                current_indent += indent
+                current_item_separator += current_indent
+                write(current_indent)
+
+            first: bool = True
+            items: Iterable[tuple[Any, Any]] = (
+                sorted(dct.items()) if sort_keys else dct.items()
+            )
+            for key, value in items:
+                if not isinstance(key, str):
+                    msg = f"Keys must be str, not {type(key).__name__}"
+                    raise TypeError(msg)
+
+                if first:
+                    first = False
+                else:
+                    write(current_item_separator)
+
+                write(encode_string(key) + key_separator)
+                write_value(value, write, current_indent)
+
+            del markers[markerid]
+            if indent is not None:
+                if trailing_comma:
+                    write(item_separator)
+
+                write(old_indent)
+
+            write("}")
+
+        def write_value(
+            obj: Any, write: Callable[[str], Any], current_indent: str,
+        ) -> None:
+            if isinstance(obj, str):
+                write(encode_string(obj))
+            elif obj is None:
+                write("null")
+            elif obj is True:
+                write("true")
+            elif obj is False:
+                write("false")
+            elif isinstance(obj, int):
+                write(int_repr(obj))
+            elif isinstance(obj, float):
+                write(floatstr(obj))
+            elif isinstance(obj, list):
+                write_list(obj, write, current_indent)  # type: ignore
+            elif isinstance(obj, dict):
+                write_dict(obj, write, current_indent)  # type: ignore
+            elif isinstance(obj, Decimal):
+                write(encode_decimal(obj))
+            else:
+                msg: str = f"{type(obj).__name__} is not JSON serializable"
                 raise TypeError(msg)
 
-            if first:
-                first = False
-            else:
-                write(current_item_separator)
+        def encoder(obj: Any) -> str:
+            fp: StringIO = StringIO()
+            write: Callable[[str], Any] = fp.write
+            try:
+                write_value(obj, write, "\n")
+            except (ValueError, TypeError) as exc:
+                raise exc.with_traceback(None) from exc
+            finally:
+                markers.clear()
 
-            write(encode_string(key) + key_separator)
-            write_value(value, write, current_indent)
+            write(end)
+            return fp.getvalue()
 
-        del markers[markerid]
-        if indent is not None:
-            if trailing_comma:
-                write(item_separator)
-
-            write(old_indent)
-
-        write("}")
-
-    def write_value(
-        obj: Any, write: Callable[[str], Any], current_indent: str,
-    ) -> None:
-        if isinstance(obj, str):
-            write(encode_string(obj))
-        elif obj is None:
-            write("null")
-        elif obj is True:
-            write("true")
-        elif obj is False:
-            write("false")
-        elif isinstance(obj, int):
-            write(int_repr(obj))
-        elif isinstance(obj, float):
-            write(floatstr(obj))
-        elif isinstance(obj, list):
-            write_list(obj, write, current_indent)  # type: ignore
-        elif isinstance(obj, dict):
-            write_dict(obj, write, current_indent)  # type: ignore
-        elif isinstance(obj, Decimal):
-            write(encode_decimal(obj))
-        else:
-            msg: str = f"{type(obj).__name__} is not JSON serializable"
-            raise TypeError(msg)
-
-    def writer(obj: Any, fp: SupportsWrite[str]) -> None:
-        write: Callable[[str], Any] = fp.write
-        try:
-            write_value(obj, write, "\n")
-        except (ValueError, TypeError) as exc:
-            raise exc.with_traceback(None) from exc
-        finally:
-            markers.clear()
-
-        write(end)
-
-    return writer
+        return encoder

@@ -30,7 +30,7 @@ from textwrap import dedent
 from typing import TYPE_CHECKING
 
 from jsonyx._decoder import DuplicateKey, JSONSyntaxError, make_scanner
-from jsonyx._encoder import make_writer
+from jsonyx._encoder import make_encoder
 from jsonyx.allow import NOTHING
 from typing_extensions import Any, Literal  # type: ignore
 
@@ -43,11 +43,6 @@ if TYPE_CHECKING:
         "comments", "duplicate_keys", "missing_commas", "nan_and_infinity",
         "surrogates", "trailing_comma",
     ] | str]
-
-try:
-    from _jsonyx import make_encoder
-except ImportError:
-    make_encoder = None
 
 
 class Decoder:
@@ -136,39 +131,24 @@ class Encoder:
             if isinstance(indent, int):
                 indent = " " * indent
 
-        if make_encoder is None:
-            self._encoder: Callable[[Any], str] | None = None
-        else:
-            self._encoder = make_encoder(
-                encode_decimal, indent, end, item_separator, key_separator,
-                allow_nan_and_infinity, allow_surrogates, ensure_ascii,
-                sort_keys, trailing_comma,
-            )
-
-        # TODO(Nice Zombies): implement writer in C
-        self._writer: Callable[[Any, SupportsWrite[str]], None] = make_writer(
+        self._encoder: Callable[[Any], str] = make_encoder(
             encode_decimal, indent, end, item_separator, key_separator,
             allow_nan_and_infinity, allow_surrogates, ensure_ascii, sort_keys,
             trailing_comma,
         )
+        self._errors: str = "surrogatepass" if allow_surrogates else "strict"
 
     def write(self, obj: Any, filename: StrPath) -> None:
         """Serialize a Python object to a JSON file."""
-        with Path(filename).open("w", encoding="utf_8") as fp:
-            self._writer(obj, fp)
+        Path(filename).write_text(self._encoder(obj), "utf_8", self._errors)
 
     def dump(self, obj: Any, fp: SupportsWrite[str] = stdout) -> None:
         """Serialize a Python object to an open JSON file."""
-        self._writer(obj, fp)
+        fp.write(self._encoder(obj))
 
     def dumps(self, obj: Any) -> str:
         """Serialize a Python object to a JSON string."""
-        if self._encoder:
-            return self._encoder(obj)
-
-        fp: StringIO = StringIO()
-        self._writer(obj, fp)
-        return fp.getvalue()
+        return self._encoder(obj)
 
 
 def detect_encoding(b: bytearray | bytes) -> str:
