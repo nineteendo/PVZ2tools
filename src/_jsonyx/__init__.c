@@ -34,8 +34,8 @@ typedef struct _PyEncoderObject {
     PyObject_HEAD
     PyObject *Decimal;
     PyObject *encode_decimal;
-    PyObject *end;
     PyObject *indent;
+    PyObject *end;
     PyObject *item_separator;
     PyObject *key_separator;
     int allow_nan_and_infinity;
@@ -1258,19 +1258,19 @@ static PyType_Spec PyScannerType_spec = {
 static PyObject *
 encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    static char *kwlist[] = {"encode_decimal", "end", "indent",
+    static char *kwlist[] = {"encode_decimal", "indent", "end",
                              "item_separator", "key_separator",
                              "allow_nan_and_infinity", "allow_surrogates",
                              "ensure_ascii", "sort_keys", NULL};
 
     PyEncoderObject *s;
-    PyObject *encode_decimal, *end, *indent;
-    PyObject *item_separator, *key_separator;
+    PyObject *encode_decimal, *indent;
+    PyObject *end, *item_separator, *key_separator;
     int allow_nan_and_infinity, allow_surrogates, ensure_ascii, sort_keys;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOUUpppp:make_encoder", kwlist,
-        &encode_decimal, &end, &indent,
-        &item_separator, &key_separator,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOUUUpppp:make_encoder", kwlist,
+        &encode_decimal, &indent,
+        &end, &item_separator, &key_separator,
         &allow_nan_and_infinity, &allow_surrogates, &ensure_ascii, &sort_keys))
         return NULL;
 
@@ -1288,8 +1288,8 @@ encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
         goto bail;
     }
     s->encode_decimal = Py_NewRef(encode_decimal);
-    s->end = Py_NewRef(end);
     s->indent = Py_NewRef(indent);
+    s->end = Py_NewRef(end);
     s->item_separator = Py_NewRef(item_separator);
     s->key_separator = Py_NewRef(key_separator);
     s->allow_nan_and_infinity = allow_nan_and_infinity;
@@ -1714,8 +1714,8 @@ encoder_traverse(PyEncoderObject *self, visitproc visit, void *arg)
 {
     Py_VISIT(Py_TYPE(self));
     Py_VISIT(self->encode_decimal);
-    Py_VISIT(self->end);
     Py_VISIT(self->indent);
+    Py_VISIT(self->end);
     Py_VISIT(self->key_separator);
     Py_VISIT(self->item_separator);
     return 0;
@@ -1726,8 +1726,8 @@ encoder_clear(PyEncoderObject *self)
 {
     /* Deallocate Encoder */
     Py_CLEAR(self->encode_decimal);
-    Py_CLEAR(self->end);
     Py_CLEAR(self->indent);
+    Py_CLEAR(self->end);
     Py_CLEAR(self->key_separator);
     Py_CLEAR(self->item_separator);
     return 0;

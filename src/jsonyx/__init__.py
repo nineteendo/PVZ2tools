@@ -140,14 +140,14 @@ class Encoder:
             self._encoder: Callable[[Any], str] | None = None
         else:
             self._encoder = make_encoder(
-                encode_decimal, end, indent, item_separator, key_separator,
+                encode_decimal, indent, end, item_separator, key_separator,
                 allow_nan_and_infinity, allow_surrogates, ensure_ascii,
                 sort_keys,
             )
 
         # TODO(Nice Zombies): implement writer in C
         self._writer: Callable[[Any, SupportsWrite[str]], None] = make_writer(
-            encode_decimal, end, indent, item_separator, key_separator,
+            encode_decimal, indent, end, item_separator, key_separator,
             allow_nan_and_infinity, allow_surrogates, ensure_ascii, sort_keys,
         )
 
