@@ -7,14 +7,14 @@ __all__: list[str] = ["make_encoder"]
 import re
 from decimal import Decimal
 from io import StringIO
-from math import inf
+from math import inf, isfinite
 from re import Match
 from typing import TYPE_CHECKING
 
 from typing_extensions import Any  # type: ignore
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable, ItemsView
 
 _ESCAPE_DCT: dict[str, str] = {chr(i): f"\\u{i:04x}" for i in range(0x20)} | {
     '"': '\\"',
@@ -84,21 +84,20 @@ except ImportError:
                 return f'"{_escape_ascii(replace, s)}"'
 
         def floatstr(num: float) -> str:
-            # pylint: disable-next=R0124
-            if num != num:  # noqa: PLR0124
-                text = "NaN"
-            elif num == inf:
-                text = "Infinity"
-            elif num == -inf:
-                text = "-Infinity"
-            else:
+            if isfinite(num):
                 return float_repr(num)
 
             if not allow_nan_and_infinity:
                 msg: str = f"{num!r} is not allowed"
                 raise ValueError(msg)
 
-            return text
+            if num == inf:
+                return "Infinity"
+
+            if num == -inf:
+                return "-Infinity"
+
+            return "NaN"
 
         def write_list(
             lst: list[Any], write: Callable[[str], Any], old_indent: str,
@@ -159,10 +158,8 @@ except ImportError:
                 write(current_indent)
 
             first: bool = True
-            items: Iterable[tuple[Any, Any]] = (
-                sorted(dct.items()) if sort_keys else dct.items()
-            )
-            for key, value in items:
+            items: ItemsView[Any, Any] = dct.items()
+            for key, value in sorted(items) if sort_keys else items:
                 if not isinstance(key, str):
                     msg = f"Keys must be str, not {type(key).__name__}"
                     raise TypeError(msg)
@@ -215,7 +212,7 @@ except ImportError:
             try:
                 write_value(obj, write, "\n")
             except (ValueError, TypeError) as exc:
-                raise exc.with_traceback(None) from exc
+                raise exc.with_traceback(None) from None
             finally:
                 markers.clear()
 

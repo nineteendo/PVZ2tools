@@ -1310,26 +1310,26 @@ encoder_encode_float(PyEncoderObject *s, PyObject *obj)
 {
     /* Return the JSON representation of a PyFloat. */
     double i = PyFloat_AS_DOUBLE(obj);
-    if (!isfinite(i)) {
-        if (!s->allow_nan_and_infinity) {
-            PyErr_Format(
-                    PyExc_ValueError,
-                    "%R is not allowed",
-                    obj
-                    );
-            return NULL;
-        }
-        if (i > 0) {
-            return PyUnicode_FromString("Infinity");
-        }
-        else if (i < 0) {
-            return PyUnicode_FromString("-Infinity");
-        }
-        else {
-            return PyUnicode_FromString("NaN");
-        }
+    if (isfinite(i)) {
+        return PyFloat_Type.tp_repr(obj);
     }
-    return PyFloat_Type.tp_repr(obj);
+    else if (!s->allow_nan_and_infinity) {
+        PyErr_Format(
+                PyExc_ValueError,
+                "%R is not allowed",
+                obj
+                );
+        return NULL;
+    }
+    if (i > 0) {
+        return PyUnicode_FromString("Infinity");
+    }
+    else if (i < 0) {
+        return PyUnicode_FromString("-Infinity");
+    }
+    else {
+        return PyUnicode_FromString("NaN");
+    }
 }
 
 static PyObject *

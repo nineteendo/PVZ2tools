@@ -110,6 +110,11 @@ class Encoder:
         allow_surrogates: bool = "surrogates" in allow
         decimal_str: Callable[[Decimal], str] = Decimal.__str__
 
+        if indent is not None:
+            item_separator = item_separator.rstrip()
+            if isinstance(indent, int):
+                indent = " " * indent
+
         def encode_decimal(decimal: Decimal) -> str:
             if not decimal.is_finite():
                 if decimal.is_snan():
@@ -124,11 +129,6 @@ class Encoder:
                     return "NaN"
 
             return decimal_str(decimal)
-
-        if indent is not None:
-            item_separator = item_separator.rstrip()
-            if isinstance(indent, int):
-                indent = " " * indent
 
         self._encoder: Callable[[Any], str] = make_encoder(
             encode_decimal, indent, end, item_separator, key_separator,
@@ -185,15 +185,15 @@ def detect_encoding(b: bytearray | bytes) -> str:
 
 def format_syntax_error(exc: JSONSyntaxError) -> str:
     """Format JSON syntax error."""
-    if exc.end_lineno != exc.lineno:
-        line_range: str = f"{exc.lineno:d}-{exc.end_lineno:d}"
+    if exc.end_lineno == exc.lineno:
+        line_range: str = f"{exc.lineno:d}"
     else:
-        line_range = f"{exc.lineno:d}"
+        line_range = f"{exc.lineno:d}-{exc.end_lineno:d}"
 
-    if exc.end_colno != exc.colno:
-        colum_range: str = f"{exc.colno:d}-{exc.end_colno:d}"
+    if exc.end_colno == exc.colno:
+        colum_range: str = f"{exc.colno:d}"
     else:
-        colum_range = f"{exc.colno:d}"
+        colum_range = f"{exc.colno:d}-{exc.end_colno:d}"
 
     caret_indent: str = " " * (exc.offset - 1)  # type: ignore
     caret_selection: str = "^" * (exc.end_offset - exc.offset)  # type: ignore

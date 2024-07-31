@@ -118,15 +118,15 @@ class JSONSyntaxError(SyntaxError):
 
     def __str__(self) -> str:
         """Convert to string."""
-        if self.end_lineno != self.lineno:
-            line_range: str = f"{self.lineno:d}-{self.end_lineno:d}"
+        if self.end_lineno == self.lineno:
+            line_range: str = f"{self.lineno:d}"
         else:
-            line_range = f"{self.lineno:d}"
+            line_range = f"{self.lineno:d}-{self.end_lineno:d}"
 
-        if self.end_colno != self.colno:
-            colum_range: str = f"{self.colno:d}-{self.end_colno:d}"
+        if self.end_colno == self.colno:
+            colum_range: str = f"{self.colno:d}"
         else:
-            colum_range = f"{self.colno:d}"
+            colum_range = f"{self.colno:d}-{self.end_colno:d}"
 
         return (
             f"{self.msg} ({self.filename}, line {line_range}, column "

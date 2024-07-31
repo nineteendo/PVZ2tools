@@ -5,7 +5,7 @@ from __future__ import annotations
 __all__: list[str] = []
 
 from decimal import Decimal
-from math import inf, isnan, nan
+from math import isnan
 from typing import TYPE_CHECKING
 
 import pytest
@@ -38,7 +38,7 @@ def _check_syntax_err(
 
 @pytest.mark.parametrize(("s", "expected"), [
     ('"\ud800"', "\ud800"),
-    ('"\ud800\u0024"', "\ud800$"),
+    ('"\ud800$"', "\ud800$"),
     ('"\udf48"', "\udf48"),  # noqa: PT014
 ])
 def test_surrogates(json: ModuleType, s: str, expected: Any) -> None:
@@ -47,9 +47,9 @@ def test_surrogates(json: ModuleType, s: str, expected: Any) -> None:
     assert json.loads(b, allow=SURROGATES) == expected
 
 
-@pytest.mark.parametrize("s", [
-    '"\ud800"', '"\ud800\u0024"', '"\udf48"',  # noqa: PT014
-])
+@pytest.mark.parametrize(
+    "s", ['"\ud800"', '"\ud800$"', '"\udf48"'],  # noqa: PT014
+)
 def test_surrogates_not_allowed(json: ModuleType, s: str) -> None:
     """Test surrogates if not allowed."""
     b: bytes = s.encode(errors="surrogatepass")
@@ -75,16 +75,11 @@ def test_keywords(json: ModuleType, s: str, expected: Any) -> None:
     assert json.loads(s) is expected
 
 
-@pytest.mark.parametrize(("s", "expected"), [
-    ("NaN", Decimal("NaN")),
-    ("Infinity", Decimal("Infinity")),
-    ("-Infinity", Decimal("-Infinity")),
-])
-def test_nan_and_infinity_decimal(
-    json: ModuleType, s: str, expected: Any,
-) -> None:
+@pytest.mark.parametrize("s", ["NaN", "Infinity", "-Infinity"])
+def test_nan_and_infinity_decimal(json: ModuleType, s: str) -> None:
     """Test NaN and infinity with decimal."""
     obj: Any = json.loads(s, allow=NAN_AND_INFINITY, use_decimal=True)
+    expected: Decimal = Decimal(s)
     assert isinstance(obj, Decimal)
     if isnan(expected):
         assert isnan(obj)
@@ -92,16 +87,11 @@ def test_nan_and_infinity_decimal(
         assert obj == expected
 
 
-@pytest.mark.parametrize(("s", "expected"), [
-    ("NaN", nan),
-    ("Infinity", inf),
-    ("-Infinity", -inf),
-])
-def test_nan_and_infinity_float(
-    json: ModuleType, s: str, expected: Any,
-) -> None:
+@pytest.mark.parametrize("s", ["NaN", "Infinity", "-Infinity"])
+def test_nan_and_infinity_float(json: ModuleType, s: str) -> None:
     """Test NaN and infinity with float."""
     obj: Any = json.loads(s, allow=NAN_AND_INFINITY)
+    expected: float = float(s)
     assert isinstance(obj, float)
     if isnan(expected):
         assert isnan(obj)
@@ -118,83 +108,52 @@ def test_nan_and_infinity_not_allowed(json: ModuleType, s: str) -> None:
     _check_syntax_err(exc_info, f"{s} is not allowed", 1, len(s) + 1)
 
 
-@pytest.mark.parametrize(("s", "expected"), {
+@pytest.mark.parametrize("s", [
     # Sign
-    ("-1", -1),
-    ("1", 1),
+    "-1",
 
     # Integer
-    ("0", 0),
-    ("1", 1),
-    ("2", 2),
-    ("3", 3),
-    ("4", 4),
-    ("5", 5),
-    ("6", 6),
-    ("7", 7),
-    ("8", 8),
-    ("9", 9),
-    ("10", 10),
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+])
+def test_int(json: ModuleType, s: str) -> None:
+    """Test integer."""
+    obj: Any = json.loads(s)
+    assert isinstance(obj, int)
+    assert obj == int(s)
+
+
+@pytest.mark.parametrize("s", [
+    # Sign
+    "-1.0",
 
     # Fraction
-    ("1.0", 1.0),
-    ("1.1", 1.1),
-    ("1.2", 1.2),
-    ("1.3", 1.3),
-    ("1.4", 1.4),
-    ("1.5", 1.5),
-    ("1.6", 1.6),
-    ("1.7", 1.7),
-    ("1.8", 1.8),
-    ("1.9", 1.9),
-    ("1.01", 1.01),
+    "1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9",
+    "1.01",
 
     # Exponent e
-    ("1e1", 10.0),
-    ("1E1", 10.0),
+    "1E1",
 
     # Exponent sign
-    ("1e-1", 0.1),
-    ("1e1", 10.0),
-    ("1e+1", 10.0),
+    "1e-1", "1e+1",
 
     # Exponent power
-    ("1e0", 1.0),
-    ("1e1", 10.0),
-    ("1e2", 100.0),
-    ("1e3", 1000.0),
-    ("1e4", 10000.0),
-    ("1e5", 100000.0),
-    ("1e6", 1000000.0),
-    ("1e7", 10000000.0),
-    ("1e8", 100000000.0),
-    ("1e9", 1000000000.0),
-    ("1e10", 10000000000.0),
+    "1e0", "1e1", "1e2", "1e3", "1e4", "1e5", "1e6", "1e7", "1e8", "1e9",
+    "1e10",
 
     # Parts
-    ("1", 1),
-    ("1e1", 10.0),
-    ("1.1", 1.1),
-    ("1.1e1", 11.0),
-    ("-1", -1),
-    ("-1e1", -10.0),
-    ("-1.1", -1.1),
-    ("-1.1e1", -11.0),
-})
-def test_number(json: ModuleType, s: str, expected: Any) -> None:
-    """Test JSON number."""
-    obj: Any = json.loads(s)
-    assert isinstance(obj, type(expected))
-    assert obj == expected
-
-
-@pytest.mark.parametrize(("s", "expected"), [
-    ("1e400", Decimal("1E+400")),
-    ("-1e400", Decimal("-1E+400")),
+    "1.1e1", "-1e1", "-1.1", "-1.1e1",
 ])
-def test_big_number_decimal(json: ModuleType, s: str, expected: Any) -> None:
+def test_float(json: ModuleType, s: str) -> None:
+    """Test float."""
+    obj: Any = json.loads(s)
+    assert isinstance(obj, float)
+    assert obj == float(s)
+
+
+@pytest.mark.parametrize("s", ["1e400", "-1e400"])
+def test_big_number_decimal(json: ModuleType, s: str) -> None:
     """Test big JSON number with decimal."""
-    assert json.loads(s, use_decimal=True) == expected
+    assert json.loads(s, use_decimal=True) == Decimal(s)
 
 
 @pytest.mark.parametrize("s", ["1e400", "-1e400"])
@@ -206,9 +165,9 @@ def test_big_number_float(json: ModuleType, s: str) -> None:
     _check_syntax_err(exc_info, "Big numbers require decimal", 1, len(s) + 1)
 
 
-@pytest.mark.parametrize("s", [
-    "1e1000000000000000000", "-1e1000000000000000000",
-])
+@pytest.mark.parametrize(
+    "s", ["1e1000000000000000000", "-1e1000000000000000000"],
+)
 def test_huge_number(json: ModuleType, s: str) -> None:
     """Test huge JSON number with decimal."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
@@ -479,9 +438,8 @@ def test_invalid_object(
 
 def test_duplicate_keys(json: ModuleType) -> None:
     """Test duplicate keys."""
-    obj: dict[str, int] = json.loads(
-        '{"a": 1, "a": 2, "a": 3}', allow=DUPLICATE_KEYS,
-    )
+    s: str = '{"a": 1, "a": 2, "a": 3}'
+    obj: dict[str, int] = json.loads(s, allow=DUPLICATE_KEYS)
     assert list(map(str, obj.keys())) == ["a", "a", "a"]
     assert list(obj.values()) == [1, 2, 3]
 
@@ -546,10 +504,7 @@ def test_invalid_value(json: ModuleType, s: str) -> None:
 
 @pytest.mark.parametrize("s", [
     # One character
-    "0 ",
-    "0\t",
-    "0\n",
-    "0\r",
+    "0 ", "0\t", "0\n", "0\r",
 
     # Multiple characters
     "0   ",
@@ -561,8 +516,7 @@ def test_whitespace(json: ModuleType, s: str) -> None:
 
 @pytest.mark.parametrize("s", [
     # One comment
-    "0//line comment",
-    "0/*block comment*/",
+    "0//line comment", "0/*block comment*/",
 
     # Multiple comments
     "0//comment 1\n//comment 2\n//comment 3",
@@ -585,11 +539,9 @@ def test_invalid_comment(json: ModuleType) -> None:
     _check_syntax_err(exc_info, "Unterminated comment", 2, 24)
 
 
-@pytest.mark.parametrize("s", [
-    "0//line comment",
-    "0/*block comment*/",
-    "0/*unterminated comment",
-])
+@pytest.mark.parametrize(
+    "s", ["0//line comment", "0/*block comment*/", "0/*unterminated comment"],
+)
 def test_comments_not_allowed(json: ModuleType, s: str) -> None:
     """Test comments if not allowed."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
