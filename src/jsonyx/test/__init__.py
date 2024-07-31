@@ -28,6 +28,6 @@ def get_json(request: pytest.FixtureRequest) -> ModuleType:
     """Get JSON module."""
     json: ModuleType | None = request.param
     if json is None:
-        pytest.skip("requires _jsonyx")
+        pytest.fail("module unavailable")
 
     return json
