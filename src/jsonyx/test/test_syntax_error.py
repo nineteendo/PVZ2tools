@@ -35,6 +35,10 @@ from jsonyx.test import get_json  # type: ignore # noqa: F401
         (8, "current\nnext", 7, 12, 8, "current", 9),
         #           ^^^^^^                     ^
 
+        # Expand tabs
+        (8, "\tcurrent", 1, 8, 2, " current", 9),
+        #      ^^^^^^^              ^^^^^^^
+
         # Truncate start
         (7, "start-middle-end", 5, 6, 4, "...-...", 5),  # end
         #         ^                          ^
@@ -42,7 +46,7 @@ from jsonyx.test import get_json  # type: ignore # noqa: F401
         #            ^^^^                       ^^^^
         (6, "start-middle-end", 13, 16, 4, "...end", 7),  # line_end
         #                 ^^^                  ^^^
-        (7, "start-middle-end", 16, 17, 7, "...end", 8),  # Newline
+        (7, "start-middle-end", 16, 17, 7, "...end", 8),  # newline
         #                    ^                    ^
 
         # Truncate middle
@@ -54,7 +58,7 @@ from jsonyx.test import get_json  # type: ignore # noqa: F401
         #    ^^^^^                        ^^^^^
         (7, "start-middle-end", 5, 6, 4, "...-...", 5),  # start
         #         ^                          ^
-        (12, "start-middle-end", 7, 11, 5, "...middle...", 9),  # start
+        (12, "start-middle-end", 7, 11, 5, "...middle...", 9),  # end
         #            ^^^^                       ^^^^
     },
 )
