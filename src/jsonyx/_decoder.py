@@ -67,18 +67,6 @@ def _get_err_context(doc: str, start: int, end: int) -> tuple[int, str, int]:
     return start - text_start + 1, text, end - text_start + 1
 
 
-def _unescape_unicode(filename: str, s: str, end: int) -> int:
-    esc: str = s[end:end + 4]
-    if len(esc) == 4 and esc[1] not in "xX":
-        try:
-            return int(esc, 16)
-        except ValueError:
-            pass
-
-    msg: str = "Expecting 4 hex digits"
-    raise _errmsg(msg, filename, s, end, -4)
-
-
 try:
     if not TYPE_CHECKING:
         from _jsonyx import DuplicateKey
@@ -186,6 +174,17 @@ except ImportError:
                     msg = "Comments are not allowed"
                     raise _errmsg(msg, filename, s, comment_idx, end)
 
+        def unescape_unicode(filename: str, s: str, end: int) -> int:
+            esc: str = s[end:end + 4]
+            if len(esc) == 4 and esc[1] not in "xX":
+                try:
+                    return int(esc, 16)
+                except ValueError:
+                    pass
+
+            msg: str = "Expecting 4 hex digits"
+            raise _errmsg(msg, filename, s, end, -4)
+
         # pylint: disable-next=R0912, R0915
         def scan_string(  # noqa: C901, PLR0912, PLR0915
             filename: str, s: str, end: int,
@@ -241,11 +240,11 @@ except ImportError:
 
                     end += 1
                 else:
-                    uni: int = _unescape_unicode(filename, s, end + 1)
+                    uni: int = unescape_unicode(filename, s, end + 1)
                     end += 5
                     if 0xd800 <= uni <= 0xdbff:
                         if s[end:end + 2] == r"\u":
-                            uni2: int = _unescape_unicode(filename, s, end + 2)
+                            uni2: int = unescape_unicode(filename, s, end + 2)
                             if 0xdc00 <= uni2 <= 0xdfff:
                                 uni = ((uni - 0xd800) << 10) | (uni2 - 0xdc00)
                                 uni += 0x10000
