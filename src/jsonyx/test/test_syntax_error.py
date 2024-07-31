@@ -88,12 +88,20 @@ def test_start_and_end_position(  # noqa: PLR0913, PLR0917
         #     ^^^^^                        ^^^^^
         (8, "current\nnext", 0, 12, 1, "current", 8),
         #    ^^^^^^^^^^^^^              ^^^^^^^
+        (8, "current\rnext", 0, 12, 1, "current", 8),
+        #    ^^^^^^^^^^^^^              ^^^^^^^
+        (8, "current\r\nnext", 0, 13, 1, "current", 8),
+        #    ^^^^^^^^^^^^^                ^^^^^^^
 
         # Newline
         (8, "current", 7, 8, 8, "current", 9),
         #           ^                   ^
         (8, "current\nnext", 7, 12, 8, "current", 9),
         #           ^^^^^^                     ^
+        (8, "current\rnext", 7, 12, 8, "current", 9),
+        #           ^^^^^^                     ^
+        (8, "current\r\nnext", 7, 13, 8, "current", 9),
+        #           ^^^^^^                      ^
 
         # Expand tabs
         (8, "\tcurrent", 1, 8, 2, " current", 9),
