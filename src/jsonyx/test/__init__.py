@@ -26,6 +26,7 @@ def get_json(request: pytest.FixtureRequest) -> ModuleType:
     """Get JSON module."""
     json: ModuleType | None = request.param
     if json is None:
+        pytest.xfail("module unavailable")
         pytest.fail("module unavailable")
 
     return json

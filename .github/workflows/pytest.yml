@@ -27,4 +27,4 @@ jobs:
     - name: Install test dependencies
       run: pip install -r .github/workflows/requirements.txt
     - name: Test with pytest
-      run: pytest
+      run: pytest -x --runxfail
