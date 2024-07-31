@@ -80,7 +80,8 @@ def _unescape_unicode(filename: str, s: str, end: int) -> int:
 
 
 try:
-    from _jsonyx import DuplicateKey  # type: ignore
+    if not TYPE_CHECKING:
+        from _jsonyx import DuplicateKey
 except ImportError:
     class DuplicateKey(str):
         """Duplicate key."""
@@ -138,7 +139,8 @@ _errmsg: type[JSONSyntaxError] = JSONSyntaxError
 
 
 try:  # noqa: PLR1702
-    from _jsonyx import make_scanner
+    if not TYPE_CHECKING:
+        from _jsonyx import make_scanner
 except ImportError:
     # pylint: disable-next=R0915, R0913, R0914
     def make_scanner(  # noqa: C901, PLR0915, PLR0917, PLR0913

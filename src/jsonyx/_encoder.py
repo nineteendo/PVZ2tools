@@ -34,7 +34,8 @@ _escape_ascii: Callable[[Callable[[Match[str]], str], str], str] = re.compile(
 ).sub
 
 try:
-    from _jsonyx import make_encoder
+    if not TYPE_CHECKING:
+        from _jsonyx import make_encoder
 except ImportError:
     # pylint: disable-next=R0915, R0913, R0914
     def make_encoder(  # noqa: C901, PLR0915, PLR0917, PLR0913

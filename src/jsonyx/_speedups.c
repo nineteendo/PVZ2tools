@@ -1777,11 +1777,3 @@ PyInit__jsonyx(void)
 {
     return PyModuleDef_Init(&jsonmodule);
 }
-
-#ifdef MS_WINDOWS
-PyMODINIT_FUNC
-PyInit___init__(void)
-{
-    return PyInit__jsonyx();
-}
-#endif
