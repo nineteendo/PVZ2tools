@@ -1,16 +1,48 @@
 # Copyright (C) 2024 Nice Zombies
-# TODO(Nice Zombies): test position
 # TODO(Nice Zombies): test __str__
 """JSONSyntaxError tests."""
 from __future__ import annotations
 
 __all__: list[str] = []
 
-
 import pytest
 from jsonyx import JSONSyntaxError
-# pylint: disable-next=W0611
-from jsonyx.test import get_json  # type: ignore # noqa: F401
+
+
+@pytest.mark.parametrize(
+    ("doc", "start", "end", "lineno", "end_lineno", "colno", "end_colno"), [
+        # Offset
+        ("line ", 5, -1, 1, 1, 6, 6),  # line 1, column 6
+        #      ^
+        ("line \nline 2", 5, -1, 1, 1, 6, 6),  # line 1, column 6
+        #      ^
+        ("line ?", 5, -1, 1, 1, 6, 7),  # line 1, column 6-7
+        #      ^
+        ("line ?\nline 2", 5, -1, 1, 1, 6, 7),  # line 1, column 6-7
+        #      ^
+
+        # Range
+        ("line 1", 0, 1, 1, 1, 1, 2),  # line 1, column 1-2
+        # ^
+        ("line 1\nline 2", 12, 13, 2, 2, 6, 7),  # line 2, column 6-7
+        #              ^
+        ("line 1\nline 2\nline 3", 12, 19, 2, 3, 6, 6),  # line 2-3, column 6
+        #              ^^^^^^^^
+        ("line 1\nline 2\nline 3", 12, 20, 2, 3, 6, 7),  # line 2-3, column 6-7
+        #              ^^^^^^^^^
+    ],
+)
+# pylint: disable-next=R0913
+def test_start_and_end_position(  # noqa: PLR0913, PLR0917
+    doc: str, start: int, end: int, lineno: int, end_lineno: int, colno: int,
+    end_colno: int,
+) -> None:
+    """Test start and end position."""
+    exc: JSONSyntaxError = JSONSyntaxError("", "", doc, start, end)
+    assert exc.lineno == lineno
+    assert exc.end_lineno == end_lineno
+    assert exc.colno == colno
+    assert exc.end_colno == end_colno
 
 
 @pytest.mark.parametrize(

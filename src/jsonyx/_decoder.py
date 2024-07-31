@@ -93,14 +93,14 @@ class JSONSyntaxError(SyntaxError):
         """Create new JSON syntax error."""
         lineno: int = doc.count("\n", 0, start) + 1
         colno: int = start - doc.rfind("\n", 0, start)
-        if end > 0:
-            end_lineno: int = doc.count("\n", 0, end) + 1
-            end_colno: int = end - doc.rfind("\n", 0, end)
-        else:
-            end_lineno = lineno
-            end_colno = colno - end
-            end = start + max(1, -end)
+        if end <= 0:  # offset
+            if (line_end := doc.find("\n", start)) == -1:
+                line_end = len(doc)
 
+            end = min(line_end, start - end)
+
+        end_lineno: int = doc.count("\n", 0, end) + 1
+        end_colno: int = end - doc.rfind("\n", 0, end)
         offset, text, end_offset = _get_err_context(doc, start, end)
         super().__init__(
             msg, (filename, lineno, offset, text, end_lineno, end_offset),
