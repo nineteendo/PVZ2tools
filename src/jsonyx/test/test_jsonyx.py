@@ -1,15 +1,14 @@
 # Copyright (C) 2024 Nice Zombies
 # TODO(Nice Zombies): test jsonyx.JSONSyntaxError
-# TODO(Nice Zombies): test jsonyx.dump
 # TODO(Nice Zombies): test jsonyx.format_syntax_error
-# TODO(Nice Zombies): test jsonyx.load
-# TODO(Nice Zombies): test jsonyx.read
-# TODO(Nice Zombies): test jsonyx.write
 """JSON tests."""
 from __future__ import annotations
 
 __all__: list[str] = []
 
+from io import StringIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
 import pytest
@@ -75,5 +74,32 @@ def test_duplicate_key(json: ModuleType) -> None:
 ])
 def test_detect_encoding(s: str, encoding: str) -> None:
     """Test detect JSON encoding."""
-    b: bytes = bytes.fromhex(s.replace("XX", "01"))
-    assert detect_encoding(b) == encoding
+    assert detect_encoding(bytes.fromhex(s.replace("XX", "01"))) == encoding
+
+
+def test_dump(json: ModuleType) -> None:
+    """Test JSON dump."""
+    fp: StringIO = StringIO()
+    json.dump(0, fp)
+    assert fp.getvalue() == "0\n"
+
+
+def test_load(json: ModuleType) -> None:
+    """Test JSON load."""
+    assert json.load(StringIO("0")) == 0
+
+
+def test_read(json: ModuleType) -> None:
+    """Test JSON read."""
+    with TemporaryDirectory() as tmpdir:
+        filename: Path = Path(tmpdir) / "file.json"
+        filename.write_text("0", "utf_8")
+        assert json.read(filename) == 0
+
+
+def test_write(json: ModuleType) -> None:
+    """Test JSON write."""
+    with TemporaryDirectory() as tmpdir:
+        filename: Path = Path(tmpdir) / "file.json"
+        json.write(0, filename)
+        assert filename.read_text("utf_8") == "0\n"
