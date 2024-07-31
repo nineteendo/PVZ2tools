@@ -112,7 +112,7 @@ _skip_comments(PyScannerObject *s, PyObject *pyfilename, PyObject *pystr, Py_ssi
             PyUnicode_READ(kind, str, idx + 1) == '/')
         {
             idx += 2;
-            while (idx < len && PyUnicode_READ(kind,str, idx) != '\n') {
+            while (idx < len && (PyUnicode_READ(kind,str, idx) != '\n' || PyUnicode_READ(kind,str, idx) != '\r')) {
                 idx++;
             }
         }
@@ -417,7 +417,7 @@ scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, int al
                     break;
                 }
                 if (d <= 0x1f) {
-                    if (d == '\n') {
+                    if (d == '\n' || d == '\r') {
                         raise_errmsg("Unterminated string", pyfilename, pystr, begin, next);
                     }
                     else {
@@ -474,7 +474,7 @@ scanstring_unicode(PyObject *pyfilename, PyObject *pystr, Py_ssize_t end, int al
                 case 'r': c = '\r'; break;
                 case 't': c = '\t'; break;
                 default:
-                    if (c == '\n') {
+                    if (c == '\n' || c == '\r') {
                         raise_errmsg("Expecting escaped character", pyfilename, pystr, end - 1, 0);
                     }
                     else {

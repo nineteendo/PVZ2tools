@@ -12,24 +12,44 @@ from jsonyx import JSONSyntaxError
 @pytest.mark.parametrize(
     ("doc", "start", "end", "lineno", "end_lineno", "colno", "end_colno"), [
         # Offset
-        ("line ", 5, -1, 1, 1, 6, 6),  # line 1, column 6
+        ("line ", 5, -1, 1, 1, 6, 6),  # ln 1, col 6
         #      ^
-        ("line \nline 2", 5, -1, 1, 1, 6, 6),  # line 1, column 6
+        ("line \nline 2", 5, -1, 1, 1, 6, 6),  # ln 1, col 6
         #      ^
-        ("line ?", 5, -1, 1, 1, 6, 7),  # line 1, column 6-7
+        ("line \rline 2", 5, -1, 1, 1, 6, 6),  # ln 1, col 6
         #      ^
-        ("line ?\nline 2", 5, -1, 1, 1, 6, 7),  # line 1, column 6-7
+        ("line \r\nline 2", 5, -1, 1, 1, 6, 6),  # ln 1, col 6
+        #      ^
+        ("line ?", 5, -1, 1, 1, 6, 7),  # ln 1, col 6-7
+        #      ^
+        ("line ?\nline 2", 5, -1, 1, 1, 6, 7),  # ln 1, col 6-7
+        #      ^
+        ("line ?\rline 2", 5, -1, 1, 1, 6, 7),  # ln 1, col 6-7
+        #      ^
+        ("line ?\r\nline 2", 5, -1, 1, 1, 6, 7),  # ln 1, col 6-7
         #      ^
 
         # Range
-        ("line 1", 0, 1, 1, 1, 1, 2),  # line 1, column 1-2
+        ("line 1", 0, 1, 1, 1, 1, 2),  # ln 1, col 1-2
         # ^
-        ("line 1\nline 2", 12, 13, 2, 2, 6, 7),  # line 2, column 6-7
+        ("line 1\nline 2", 12, 13, 2, 2, 6, 7),  # ln 2, col 6-7
         #              ^
-        ("line 1\nline 2\nline 3", 12, 19, 2, 3, 6, 6),  # line 2-3, column 6
+        ("line 1\rline 2", 12, 13, 2, 2, 6, 7),  # ln 2, col 6-7
+        #              ^
+        ("line 1\r\nline 2", 13, 14, 2, 2, 6, 7),  # ln 2, col 6-7
+        #                ^
+        ("line 1\nline 2\nline 3", 12, 19, 2, 3, 6, 6),  # ln 2-3, col 6
         #              ^^^^^^^^
-        ("line 1\nline 2\nline 3", 12, 20, 2, 3, 6, 7),  # line 2-3, column 6-7
+        ("line 1\rline 2\rline 3", 12, 19, 2, 3, 6, 6),  # ln 2-3, col 6
+        #              ^^^^^^^^
+        ("line 1\r\nline 2\r\nline 3", 13, 21, 2, 3, 6, 6),  # ln 2-3, col 6
+        #                ^^^^^^^^^^
+        ("line 1\nline 2\nline 3", 12, 20, 2, 3, 6, 7),  # ln 2-3, col 6-7
         #              ^^^^^^^^^
+        ("line 1\rline 2\rline 3", 12, 20, 2, 3, 6, 7),  # ln 2-3, col 6-7
+        #              ^^^^^^^^^
+        ("line 1\r\nline 2\r\nline 3", 13, 22, 2, 3, 6, 7),  # ln 2-3, col 6-7
+        #                ^^^^^^^^^^^
     ],
 )
 # pylint: disable-next=R0913
@@ -52,8 +72,16 @@ def test_start_and_end_position(  # noqa: PLR0913, PLR0917
         #    ^^^^^^^             ^^^^^^^
         (12, "current\nnext", 0, 7, 1, "current", 8),
         #     ^^^^^^^                   ^^^^^^^
+        (12, "current\rnext", 0, 7, 1, "current", 8),
+        #     ^^^^^^^                   ^^^^^^^
+        (12, "current\r\nnext", 0, 7, 1, "current", 8),
+        #     ^^^^^^^                     ^^^^^^^
         (16, "previous\ncurrent", 9, 16, 1, "current", 8),
         #               ^^^^^^^              ^^^^^^^
+        (16, "previous\rcurrent", 9, 16, 1, "current", 8),
+        #               ^^^^^^^              ^^^^^^^
+        (16, "previous\r\ncurrent", 10, 17, 1, "current", 8),
+        #                 ^^^^^^^               ^^^^^^^
 
         # No newline
         (17, "start-middle-end", 0, 5, 1, "start-middle-end", 6),

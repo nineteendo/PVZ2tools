@@ -31,6 +31,9 @@ _UNESCAPE: dict[str, str] = {
 _match_chunk: Callable[[str, int], Match[str] | None] = re.compile(
     r'[^"\\\x00-\x1f]+', _FLAGS,
 ).match
+_match_line_end: Callable[[str, int], Match[str] | None] = re.compile(
+    r"[^\n\r]+", _FLAGS,
+).match
 _match_number: Callable[[str, int], Match[str] | None] = re.compile(
     r"(-?(?:0|[1-9]\d*))(\.\d+)?([eE][-+]?\d+)?", _FLAGS,
 ).match
@@ -40,9 +43,13 @@ _match_whitespace: Callable[[str, int], Match[str] | None] = re.compile(
 
 
 def _get_err_context(doc: str, start: int, end: int) -> tuple[int, str, int]:
-    line_start: int = doc.rfind("\n", 0, start) + 1
-    if (line_end := doc.find("\n", start)) == -1:
-        line_end = len(doc)
+    line_start: int = max(
+        doc.rfind("\n", 0, start), doc.rfind("\r", 0, start),
+    ) + 1
+    if (match := _match_line_end(doc, start)):
+        line_end: int = match.end()
+    else:
+        line_end = start
 
     end = min(max(start + 1, line_end), end)
     max_chars: int = get_terminal_size().columns - 4  # leading spaces
@@ -91,16 +98,30 @@ class JSONSyntaxError(SyntaxError):
         self, msg: str, filename: str, doc: str, start: int, end: int = 0,
     ) -> None:
         """Create new JSON syntax error."""
-        lineno: int = doc.count("\n", 0, start) + 1
-        colno: int = start - doc.rfind("\n", 0, start)
+        lineno: int = (
+            doc.count("\n", 0, start)
+            + doc.count("\r", 0, start)
+            - doc.count("\r\n", 0, start)
+            + 1
+        )
+        colno: int = start - max(
+            doc.rfind("\n", 0, start), doc.rfind("\r", 0, start),
+        )
         if end <= 0:  # offset
-            if (line_end := doc.find("\n", start)) == -1:
-                line_end = len(doc)
+            if (match := _match_line_end(doc, start)):
+                end = min(match.end(), start - end)
+            else:
+                end = start
 
-            end = min(line_end, start - end)
-
-        end_lineno: int = doc.count("\n", 0, end) + 1
-        end_colno: int = end - doc.rfind("\n", 0, end)
+        end_lineno: int = (
+            doc.count("\n", 0, end)
+            + doc.count("\r", 0, end)
+            - doc.count("\r\n", 0, end)
+            + 1
+        )
+        end_colno: int = end - max(
+            doc.rfind("\n", 0, end), doc.rfind("\r", 0, end),
+        )
         offset, text, end_offset = _get_err_context(doc, start, end)
         super().__init__(
             msg, (filename, lineno, offset, text, end_lineno, end_offset),
@@ -156,10 +177,9 @@ except ImportError:
 
                 comment_idx: int = end
                 if (comment_prefix := s[end:end + 2]) == "//":
-                    if (end := find("\n", end + 2)) != -1:
-                        end += 1
-                    else:
-                        end = len(s)
+                    end += 2
+                    if (match := _match_line_end(s, end)):
+                        end = match.end()
                 elif comment_prefix == "/*":
                     if (end := find("*/", end + 2)) == -1:
                         if allow_comments:
@@ -213,7 +233,7 @@ except ImportError:
                     return "".join(chunks), end + 1
 
                 if terminator != "\\":
-                    if terminator == "\n":
+                    if terminator in {"\n", "\r"}:
                         msg = "Unterminated string"
                         raise _errmsg(msg, filename, s, str_idx, end)
 
@@ -232,7 +252,7 @@ except ImportError:
                     try:
                         char = _UNESCAPE[esc]
                     except KeyError:
-                        if esc == "\n":
+                        if esc in {"\n", "\r"}:
                             msg = "Expecting escaped character"
                             raise _errmsg(msg, filename, s, end) from None
 

@@ -231,9 +231,13 @@ def test_surrogate_escapes(json: ModuleType, s: str, expected: Any) -> None:
 @pytest.mark.parametrize(("s", "msg", "colno", "end_colno"), [
     ('"foo', "Unterminated string", 1, 5),
     ('"foo\n', "Unterminated string", 1, 5),
+    ('"foo\r', "Unterminated string", 1, 5),
+    ('"foo\r\n', "Unterminated string", 1, 5),
     ('"\b"', "Unescaped control character", 2, 3),
     ('"\\', "Expecting escaped character", 3, 0),
     ('"\\\n', "Expecting escaped character", 3, 0),
+    ('"\\\r', "Expecting escaped character", 3, 0),
+    ('"\\\r\n', "Expecting escaped character", 3, 0),
     (r'"\a"', "Invalid backslash escape", 2, 4),
     (r'"\u"', "Expecting 4 hex digits", 4, 5),
     (r'"\u0xff"', "Expecting 4 hex digits", 4, 8),
@@ -501,14 +505,18 @@ def test_whitespace(json: ModuleType, s: str) -> None:
 
 @pytest.mark.parametrize("s", [
     # One comment
-    "0//line comment", "0/*block comment*/",
+    "0//", "0//line comment", "0/*block comment*/",
 
     # Multiple comments
     "0//comment 1\n//comment 2\n//comment 3",
+    "0//comment 1\r//comment 2\r//comment 3",
+    "0//comment 1\r\n//comment 2\r\n//comment 3",
     "0/*comment 1*//*comment 2*//*comment 3*/",
 
     # Whitespace
     "0 //comment 1\n //comment 2\n //comment 3\n ",
+    "0 //comment 1\r //comment 2\r //comment 3\r ",
+    "0 //comment 1\r\n //comment 2\r\n //comment 3\r\n ",
     "0 /*comment 1*/ /*comment 2*/ /*comment 3*/ ",
 ])
 def test_comments(json: ModuleType, s: str) -> None:
@@ -524,9 +532,9 @@ def test_invalid_comment(json: ModuleType) -> None:
     _check_syntax_err(exc_info, "Unterminated comment", 2, 24)
 
 
-@pytest.mark.parametrize(
-    "s", ["0//line comment", "0/*block comment*/", "0/*unterminated comment"],
-)
+@pytest.mark.parametrize("s", [
+    "0//", "0//line comment", "0/*block comment*/", "0/*unterminated comment",
+])
 def test_comments_not_allowed(json: ModuleType, s: str) -> None:
     """Test comments if not allowed."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:

@@ -80,8 +80,6 @@ class Decoder:
 
         if not isinstance(s, str):
             s = s.decode(detect_encoding(s), self._errors)
-            # Normalize newlines
-            s = s.replace("\r\n", "\n").replace("\r", "\n")
         elif s.startswith("\ufeff"):
             msg: str = "Unexpected UTF-8 BOM"
             raise JSONSyntaxError(msg, filename, s, 0)
