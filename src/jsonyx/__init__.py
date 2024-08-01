@@ -25,7 +25,6 @@ from os import fspath
 from os.path import realpath
 from pathlib import Path
 from sys import stdout
-from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Literal
 
 from jsonyx._decoder import DuplicateKey, JSONSyntaxError, make_scanner
@@ -180,7 +179,7 @@ def detect_encoding(b: bytearray | bytes) -> str:
     return encoding
 
 
-def format_syntax_error(exc: JSONSyntaxError) -> str:
+def format_syntax_error(exc: JSONSyntaxError) -> list[str]:
     """Format JSON syntax error."""
     if exc.end_lineno == exc.lineno:
         line_range: str = f"{exc.lineno:d}"
@@ -194,12 +193,12 @@ def format_syntax_error(exc: JSONSyntaxError) -> str:
 
     caret_indent: str = " " * (exc.offset - 1)  # type: ignore
     caret_selection: str = "^" * (exc.end_offset - exc.offset)  # type: ignore
-    return dedent(f"""\
-      File "{exc.filename}", line {line_range}, column {column_range}
-        {exc.text}
-        {caret_indent}{caret_selection}
-    {exc.__module__}.{type(exc).__qualname__}: {exc.msg}\
-    """)
+    return [
+        f'  File "{exc.filename}", line {line_range}, column {column_range}\n',
+        f"    {exc.text}\n",
+        f"    {caret_indent}{caret_selection}\n",
+        f"{exc.__module__}.{type(exc).__qualname__}: {exc.msg}\n",
+    ]
 
 
 def read(
