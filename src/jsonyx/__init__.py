@@ -189,14 +189,14 @@ def format_syntax_error(exc: JSONSyntaxError) -> str:
         line_range = f"{exc.lineno:d}-{exc.end_lineno:d}"
 
     if exc.end_colno == exc.colno:
-        colum_range: str = f"{exc.colno:d}"
+        column_range: str = f"{exc.colno:d}"
     else:
-        colum_range = f"{exc.colno:d}-{exc.end_colno:d}"
+        column_range = f"{exc.colno:d}-{exc.end_colno:d}"
 
     caret_indent: str = " " * (exc.offset - 1)  # type: ignore
     caret_selection: str = "^" * (exc.end_offset - exc.offset)  # type: ignore
     return dedent(f"""\
-      File "{exc.filename}", line {line_range}, column {colum_range}
+      File "{exc.filename}", line {line_range}, column {column_range}
         {exc.text}
         {caret_indent}{caret_selection}
     {exc.__module__}.{type(exc).__qualname__}: {exc.msg}\

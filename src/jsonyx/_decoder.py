@@ -137,13 +137,13 @@ class JSONSyntaxError(SyntaxError):
             line_range = f"{self.lineno:d}-{self.end_lineno:d}"
 
         if self.end_colno == self.colno:
-            colum_range: str = f"{self.colno:d}"
+            column_range: str = f"{self.colno:d}"
         else:
-            colum_range = f"{self.colno:d}-{self.end_colno:d}"
+            column_range = f"{self.colno:d}-{self.end_colno:d}"
 
         return (
             f"{self.msg} ({self.filename}, line {line_range}, column "
-            f"{colum_range})"
+            f"{column_range})"
         )
 
 

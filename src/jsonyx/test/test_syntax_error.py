@@ -1,5 +1,4 @@
 # Copyright (C) 2024 Nice Zombies
-# TODO(Nice Zombies): test __str__
 """JSONSyntaxError tests."""
 from __future__ import annotations
 
@@ -10,58 +9,58 @@ from jsonyx import JSONSyntaxError
 
 
 @pytest.mark.parametrize(
-    ("doc", "start", "end", "lineno", "end_lineno", "colno", "end_colno"), [
+    ("doc", "start", "end", "lineno", "end_lineno", "end_colno"), [
         # Offset
-        ("line ", 5, -1, 1, 1, 6, 6),  # ln 1, col 6
+        ("line ", 5, -1, 1, 1, 6),  # ln 1, col 6
         #      ^
-        ("line \nline 2", 5, -1, 1, 1, 6, 6),  # ln 1, col 6
+        ("line \nline 2", 5, -1, 1, 1, 6),  # ln 1, col 6
         #      ^
-        ("line \rline 2", 5, -1, 1, 1, 6, 6),  # ln 1, col 6
+        ("line \rline 2", 5, -1, 1, 1, 6),  # ln 1, col 6
         #      ^
-        ("line \r\nline 2", 5, -1, 1, 1, 6, 6),  # ln 1, col 6
+        ("line \r\nline 2", 5, -1, 1, 1, 6),  # ln 1, col 6
         #      ^
-        ("line ?", 5, -1, 1, 1, 6, 7),  # ln 1, col 6-7
+        ("line ?", 5, -1, 1, 1, 7),  # ln 1, col 6-7
         #      ^
-        ("line ?\nline 2", 5, -1, 1, 1, 6, 7),  # ln 1, col 6-7
+        ("line ?\nline 2", 5, -1, 1, 1, 7),  # ln 1, col 6-7
         #      ^
-        ("line ?\rline 2", 5, -1, 1, 1, 6, 7),  # ln 1, col 6-7
+        ("line ?\rline 2", 5, -1, 1, 1, 7),  # ln 1, col 6-7
         #      ^
-        ("line ?\r\nline 2", 5, -1, 1, 1, 6, 7),  # ln 1, col 6-7
+        ("line ?\r\nline 2", 5, -1, 1, 1, 7),  # ln 1, col 6-7
         #      ^
 
         # Range
-        ("line 1", 0, 1, 1, 1, 1, 2),  # ln 1, col 1-2
-        # ^
-        ("line 1\nline 2", 12, 13, 2, 2, 6, 7),  # ln 2, col 6-7
+        ("line 1", 5, 5, 1, 1, 6),  # ln 1, col 6
+        #      ^
+        ("line 1\nline 2", 12, 13, 2, 2, 7),  # ln 2, col 6-7
         #              ^
-        ("line 1\rline 2", 12, 13, 2, 2, 6, 7),  # ln 2, col 6-7
+        ("line 1\rline 2", 12, 13, 2, 2, 7),  # ln 2, col 6-7
         #              ^
-        ("line 1\r\nline 2", 13, 14, 2, 2, 6, 7),  # ln 2, col 6-7
+        ("line 1\r\nline 2", 13, 14, 2, 2, 7),  # ln 2, col 6-7
         #                ^
-        ("line 1\nline 2\nline 3", 12, 19, 2, 3, 6, 6),  # ln 2-3, col 6
+        ("line 1\nline 2\nline 3", 12, 19, 2, 3, 6),  # ln 2-3, col 6
         #              ^^^^^^^^
-        ("line 1\rline 2\rline 3", 12, 19, 2, 3, 6, 6),  # ln 2-3, col 6
+        ("line 1\rline 2\rline 3", 12, 19, 2, 3, 6),  # ln 2-3, col 6
         #              ^^^^^^^^
-        ("line 1\r\nline 2\r\nline 3", 13, 21, 2, 3, 6, 6),  # ln 2-3, col 6
+        ("line 1\r\nline 2\r\nline 3", 13, 21, 2, 3, 6),  # ln 2-3, col 6
         #                ^^^^^^^^^^
-        ("line 1\nline 2\nline 3", 12, 20, 2, 3, 6, 7),  # ln 2-3, col 6-7
+        ("line 1\nline 2\nline 3", 12, 20, 2, 3, 7),  # ln 2-3, col 6-7
         #              ^^^^^^^^^
-        ("line 1\rline 2\rline 3", 12, 20, 2, 3, 6, 7),  # ln 2-3, col 6-7
+        ("line 1\rline 2\rline 3", 12, 20, 2, 3, 7),  # ln 2-3, col 6-7
         #              ^^^^^^^^^
-        ("line 1\r\nline 2\r\nline 3", 13, 22, 2, 3, 6, 7),  # ln 2-3, col 6-7
+        ("line 1\r\nline 2\r\nline 3", 13, 22, 2, 3, 7),  # ln 2-3, col 6-7
         #                ^^^^^^^^^^^
     ],
 )
 # pylint: disable-next=R0913
 def test_start_and_end_position(  # noqa: PLR0913, PLR0917
-    doc: str, start: int, end: int, lineno: int, end_lineno: int, colno: int,
+    doc: str, start: int, end: int, lineno: int, end_lineno: int,
     end_colno: int,
 ) -> None:
     """Test start and end position."""
     exc: JSONSyntaxError = JSONSyntaxError("", "", doc, start, end)
     assert exc.lineno == lineno
     assert exc.end_lineno == end_lineno
-    assert exc.colno == colno
+    assert exc.colno == 6
     assert exc.end_colno == end_colno
 
 
@@ -141,3 +140,23 @@ def test_err_context(  # noqa: PLR0913, PLR0917
     assert exc.offset == offset
     assert exc.text == text
     assert exc.end_offset == end_offset
+
+
+@pytest.mark.parametrize(("doc", "end", "line_range", "column_range"), [
+    ("line 1", 5, "1", "6"),
+    #      ^
+    ("line 1", 6, "1", "6-7"),
+    #      ^
+    ("line 1\nline 2", 12, "1-2", "6"),
+    #      ^^^^^^^^
+    ("line 1\nline 2", 13, "1-2", "6-7"),
+    #      ^^^^^^^^^
+])
+def test_string(
+    doc: str, end: int, line_range: str, column_range: str,
+) -> None:
+    """Test string representation."""
+    exc: JSONSyntaxError = JSONSyntaxError("msg", "<string>", doc, 5, end)
+    assert str(exc) == (
+        f"msg (<string>, line {line_range}, column {column_range})"
+    )
