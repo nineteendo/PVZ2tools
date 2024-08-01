@@ -7,11 +7,10 @@ __all__: list[str] = []
 
 import sys
 from argparse import ArgumentParser
-from typing import cast
+from typing import Literal, cast
 
 import jsonyx.tool
 from jsonyx.tool import JSONNamespace
-from typing_extensions import Literal, assert_never  # type: ignore
 
 
 class _PyVZ2Namespace:  # pylint: disable=R0903
@@ -28,8 +27,6 @@ def _main() -> None:
     try:
         if args.command == "json":
             jsonyx.tool.run(cast(JSONNamespace, args))
-        else:
-            assert_never(args.command)
     except BrokenPipeError as exc:
         sys.exit(exc.errno)
 

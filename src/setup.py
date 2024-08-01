@@ -16,5 +16,5 @@ if __name__ == "__main__":
             Extension("_jsonyx", ["jsonyx/_speedups.c"], optional=True),
         ],
         # TODO(Nice Zombies): add jsonyx as a dependency
-        install_requires=["typing_extensions"],
+        install_requires=[],
     )

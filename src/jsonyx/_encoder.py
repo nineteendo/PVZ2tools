@@ -11,8 +11,6 @@ from math import inf, isfinite
 from re import Match
 from typing import TYPE_CHECKING
 
-from typing_extensions import Any  # type: ignore
-
 if TYPE_CHECKING:
     from collections.abc import Callable, ItemsView
 
@@ -49,11 +47,11 @@ except ImportError:
         ensure_ascii: bool,  # noqa: FBT001
         sort_keys: bool,  # noqa: FBT001
         trailing_comma: bool,  # noqa: FBT001
-    ) -> Callable[[Any], str]:
+    ) -> Callable[[object], str]:
         """Make JSON encoder."""
         float_repr: Callable[[float], str] = float.__repr__
         int_repr: Callable[[int], str] = int.__repr__
-        markers: dict[int, Any] = {}
+        markers: dict[int, object] = {}
 
         if not ensure_ascii:
             def replace(match: Match[str]) -> str:
@@ -101,7 +99,7 @@ except ImportError:
             return "NaN"
 
         def write_list(
-            lst: list[Any], write: Callable[[str], Any], old_indent: str,
+            lst: list[object], write: Callable[[str], object], old_indent: str,
         ) -> None:
             if not lst:
                 write("[]")
@@ -139,7 +137,8 @@ except ImportError:
             write("]")
 
         def write_dict(
-            dct: dict[Any, Any], write: Callable[[str], Any], old_indent: str,
+            dct: dict[object, object], write: Callable[[str], object],
+            old_indent: str,
         ) -> None:
             if not dct:
                 write("{}")
@@ -159,7 +158,7 @@ except ImportError:
                 write(current_indent)
 
             first: bool = True
-            items: ItemsView[Any, Any] = dct.items()
+            items: ItemsView[object, object] = dct.items()
             for key, value in sorted(items) if sort_keys else items:
                 if not isinstance(key, str):
                     msg = f"Keys must be str, not {type(key).__name__}"
@@ -183,7 +182,7 @@ except ImportError:
             write("}")
 
         def write_value(
-            obj: Any, write: Callable[[str], Any], current_indent: str,
+            obj: object, write: Callable[[str], object], current_indent: str,
         ) -> None:
             if isinstance(obj, str):
                 write(encode_string(obj))
@@ -207,9 +206,9 @@ except ImportError:
                 msg: str = f"{type(obj).__name__} is not JSON serializable"
                 raise TypeError(msg)
 
-        def encoder(obj: Any) -> str:
+        def encoder(obj: object) -> str:
             fp: StringIO = StringIO()
-            write: Callable[[str], Any] = fp.write
+            write: Callable[[str], object] = fp.write
             try:
                 write_value(obj, write, "\n")
             except (ValueError, TypeError) as exc:

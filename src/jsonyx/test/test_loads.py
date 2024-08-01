@@ -6,7 +6,7 @@ __all__: list[str] = []
 
 from decimal import Decimal
 from math import isnan
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from jsonyx.allow import (
@@ -15,7 +15,6 @@ from jsonyx.allow import (
 )
 # pylint: disable-next=W0611
 from jsonyx.test import get_json  # type: ignore # noqa: F401
-from typing_extensions import Any  # type: ignore
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -41,7 +40,7 @@ def _check_syntax_err(
     ('"\ud800$"', "\ud800$"),
     ('"\udf48"', "\udf48"),  # noqa: PT014
 ])
-def test_surrogates(json: ModuleType, s: str, expected: Any) -> None:
+def test_surrogates(json: ModuleType, s: str, expected: str) -> None:
     """Test surrogates."""
     b: bytes = s.encode(errors="surrogatepass")
     assert json.loads(b, allow=SURROGATES) == expected
@@ -70,7 +69,7 @@ def test_utf8_bom(json: ModuleType) -> None:
     ("false", False),
     ("null", None),
 ])
-def test_keywords(json: ModuleType, s: str, expected: Any) -> None:
+def test_keywords(json: ModuleType, s: str, *, expected: bool | None) -> None:
     """Test JSON keywords."""
     assert json.loads(s) is expected
 
@@ -81,12 +80,14 @@ def test_nan_and_infinity(
     json: ModuleType, s: str, *, use_decimal: bool,
 ) -> None:
     """Test NaN and infinity with decimal and float."""
-    obj: Any = json.loads(s, allow=NAN_AND_INFINITY, use_decimal=use_decimal)
-    expected_type: type = Decimal if use_decimal else float
-    expected: Any = expected_type(s)
+    obj: object = json.loads(
+        s, allow=NAN_AND_INFINITY, use_decimal=use_decimal,
+    )
+    expected_type: type[Decimal | float] = Decimal if use_decimal else float
+    expected: Decimal | float = expected_type(s)
     assert isinstance(obj, expected_type)
     if isnan(expected):
-        assert isnan(obj)
+        assert isnan(obj)  # type: ignore[arg-type]
     else:
         assert obj == expected
 
@@ -112,7 +113,7 @@ def test_nan_and_infinity_not_allowed(
 ])
 def test_int(json: ModuleType, s: str) -> None:
     """Test integer."""
-    obj: Any = json.loads(s)
+    obj: object = json.loads(s)
     assert isinstance(obj, int)
     assert obj == int(s)
 
@@ -143,8 +144,8 @@ def test_decimal_and_float(
     json: ModuleType, s: str, *, use_decimal: bool,
 ) -> None:
     """Test decimal and float."""
-    obj: Any = json.loads(s, use_decimal=use_decimal)
-    expected_type: type = Decimal if use_decimal else float
+    obj: object = json.loads(s, use_decimal=use_decimal)
+    expected_type: type[Decimal | float] = Decimal if use_decimal else float
     assert isinstance(obj, expected_type)
     assert obj == expected_type(s)
 
@@ -213,7 +214,7 @@ def test_too_big_number(json: ModuleType, s: str) -> None:
     ('"foo"', "foo"),
     (r'"foo\/bar"', "foo/bar"),
 ])
-def test_string(json: ModuleType, s: str, expected: Any) -> None:
+def test_string(json: ModuleType, s: str, expected: str) -> None:
     """Test JSON string."""
     assert json.loads(s) == expected
 
@@ -223,7 +224,7 @@ def test_string(json: ModuleType, s: str, expected: Any) -> None:
     (r'"\ud800\u0024"', "\ud800$"),
     (r'"\udf48"', "\udf48"),
 ])
-def test_surrogate_escapes(json: ModuleType, s: str, expected: Any) -> None:
+def test_surrogate_escapes(json: ModuleType, s: str, expected: str) -> None:
     """Test surrogate escapes."""
     assert json.loads(s, allow=SURROGATES) == expected
 
@@ -269,7 +270,7 @@ def test_invalid_string(
     # Multiple values
     ("[1, 2, 3]", [1, 2, 3]),
 ])  # type: ignore
-def test_array(json: ModuleType, s: str, expected: Any) -> None:
+def test_array(json: ModuleType, s: str, expected: list[object]) -> None:
     """Test JSON array."""
     assert json.loads(s) == expected
 
@@ -290,7 +291,9 @@ def test_array(json: ModuleType, s: str, expected: Any) -> None:
     # After last element
     ("[1,2,3 ]", [1, 2, 3]),
 ])
-def test_array_whitespace(json: ModuleType, s: str, expected: Any) -> None:
+def test_array_whitespace(
+    json: ModuleType, s: str, expected: list[object],
+) -> None:
     """Test whitespace in JSON array."""
     assert json.loads(s) == expected
 
@@ -311,7 +314,9 @@ def test_array_whitespace(json: ModuleType, s: str, expected: Any) -> None:
     # After last element
     ("[1,2,3/**/]", [1, 2, 3]),
 ])
-def test_array_comments(json: ModuleType, s: str, expected: Any) -> None:
+def test_array_comments(
+    json: ModuleType, s: str, expected: list[object],
+) -> None:
     """Test comments in JSON array."""
     assert json.loads(s, allow=COMMENTS) == expected
 
@@ -344,7 +349,7 @@ def test_invalid_array(
     # Multiple values
     ('{"a": 1, "b": 2, "c": 3}', {"a": 1, "b": 2, "c": 3}),
 ])  # type: ignore
-def test_object(json: ModuleType, s: str, expected: Any) -> None:
+def test_object(json: ModuleType, s: str, expected: dict[str, object]) -> None:
     """Test JSON object."""
     assert json.loads(s) == expected
 
@@ -371,7 +376,9 @@ def test_object(json: ModuleType, s: str, expected: Any) -> None:
     # After last element
     ('{"a":1,"b":2,"c":3 }', {"a": 1, "b": 2, "c": 3}),
 ])
-def test_object_whitespace(json: ModuleType, s: str, expected: Any) -> None:
+def test_object_whitespace(
+    json: ModuleType, s: str, expected: dict[str, object],
+) -> None:
     """Test whitespace in JSON object."""
     assert json.loads(s) == expected
 
@@ -398,7 +405,9 @@ def test_object_whitespace(json: ModuleType, s: str, expected: Any) -> None:
     # After last element
     ('{"a":1,"b":2,"c":3/**/}', {"a": 1, "b": 2, "c": 3}),
 ])
-def test_object_comments(json: ModuleType, s: str, expected: Any) -> None:
+def test_object_comments(
+    json: ModuleType, s: str, expected: dict[str, object],
+) -> None:
     """Test comments in JSON object."""
     assert json.loads(s, allow=COMMENTS) == expected
 
@@ -444,7 +453,9 @@ def test_reuse_keys(json: ModuleType) -> None:
     ("[1 2 3]", [1, 2, 3]),
     ('{"a": 1 "b": 2 "c": 3}', {"a": 1, "b": 2, "c": 3}),
 ])
-def test_missing_commas(json: ModuleType, s: str, expected: Any) -> None:
+def test_missing_commas(
+    json: ModuleType, s: str, expected: dict[str, object] | list[object],
+) -> None:
     """Test missing comma's."""
     assert json.loads(s, allow=MISSING_COMMAS) == expected
 
@@ -453,7 +464,9 @@ def test_missing_commas(json: ModuleType, s: str, expected: Any) -> None:
     ("[0,]", [0]),
     ('{"": 0,}', {"": 0}),
 ])
-def test_trailing_comma(json: ModuleType, s: str, expected: Any) -> None:
+def test_trailing_comma(
+    json: ModuleType, s: str, expected: dict[str, object] | list[object],
+) -> None:
     """Test trailing comma."""
     assert json.loads(s, allow=TRAILING_COMMA) == expected
 

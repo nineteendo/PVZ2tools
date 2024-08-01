@@ -14,11 +14,11 @@ from jsonyx import JSONSyntaxError
 if TYPE_CHECKING:
     from types import ModuleType
 
-cjson: ModuleType | None = import_fresh_module("jsonyx", fresh=["_jsonyx"])
-pyjson: ModuleType | None = import_fresh_module("jsonyx", blocked=["_jsonyx"])
-if cjson:
+if cjson := import_fresh_module("jsonyx", fresh=["_jsonyx"]):
     # JSONSyntaxError is cached inside the _jsonyx module
     cjson.JSONSyntaxError = JSONSyntaxError  # type: ignore
+
+pyjson: ModuleType | None = import_fresh_module("jsonyx", blocked=["_jsonyx"])
 
 
 @pytest.fixture(params=[cjson, pyjson], ids=["cjson", "pyjson"], name="json")

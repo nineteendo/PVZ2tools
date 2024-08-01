@@ -9,9 +9,7 @@ from decimal import Decimal, InvalidOperation
 from math import isinf
 from re import DOTALL, MULTILINE, VERBOSE, Match, RegexFlag
 from shutil import get_terminal_size
-from typing import TYPE_CHECKING
-
-from typing_extensions import Any  # type: ignore
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -169,7 +167,9 @@ except ImportError:
         """Make JSON scanner."""
         memo: dict[str, str] = {}
         memoize: Callable[[str, str], str] = memo.setdefault
-        parse_float: Callable[[str], Any] = Decimal if use_decimal else float
+        parse_float: Callable[
+            [str], Decimal | float,
+        ] = Decimal if use_decimal else float
 
         def skip_comments(filename: str, s: str, end: int) -> int:
             find: Callable[[str, int], int] = s.find
@@ -382,7 +382,7 @@ except ImportError:
                 return [], end + 1
 
             values: list[Any] = []
-            append_value: Callable[[Any], None] = values.append
+            append_value: Callable[[object], None] = values.append
             while True:
                 value, end = scan_value(filename, s, end)
                 append_value(value)

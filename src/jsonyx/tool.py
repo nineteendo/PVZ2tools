@@ -12,7 +12,6 @@ from sys import stdin
 
 from jsonyx import JSONSyntaxError, dump, format_syntax_error, loads
 from jsonyx.allow import EVERYTHING, NOTHING, SURROGATES
-from typing_extensions import Any  # type: ignore
 
 
 class JSONNamespace:  # pylint: disable=R0903
@@ -59,7 +58,7 @@ def run(args: JSONNamespace) -> None:
         ) if stdin.isatty() else stdin.buffer.read()
 
     try:
-        obj: Any = loads(
+        obj: object = loads(
             s,
             allow=EVERYTHING - SURROGATES if args.nonstrict else NOTHING,
             filename=filename,

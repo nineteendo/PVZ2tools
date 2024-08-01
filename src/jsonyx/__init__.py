@@ -26,12 +26,11 @@ from os.path import realpath
 from pathlib import Path
 from sys import stdout
 from textwrap import dedent
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
 
 from jsonyx._decoder import DuplicateKey, JSONSyntaxError, make_scanner
 from jsonyx._encoder import make_encoder
 from jsonyx.allow import NOTHING
-from typing_extensions import Any, Literal  # type: ignore
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Container
@@ -128,22 +127,22 @@ class Encoder:
 
             return decimal_str(decimal)
 
-        self._encoder: Callable[[Any], str] = make_encoder(
+        self._encoder: Callable[[object], str] = make_encoder(
             encode_decimal, indent, end, item_separator, key_separator,
             allow_nan_and_infinity, allow_surrogates, ensure_ascii, sort_keys,
             trailing_comma,
         )
         self._errors: str = "surrogatepass" if allow_surrogates else "strict"
 
-    def write(self, obj: Any, filename: StrPath) -> None:
+    def write(self, obj: object, filename: StrPath) -> None:
         """Serialize a Python object to a JSON file."""
         Path(filename).write_text(self._encoder(obj), "utf_8", self._errors)
 
-    def dump(self, obj: Any, fp: SupportsWrite[str] = stdout) -> None:
+    def dump(self, obj: object, fp: SupportsWrite[str] = stdout) -> None:
         """Serialize a Python object to an open JSON file."""
         fp.write(self._encoder(obj))
 
-    def dumps(self, obj: Any) -> str:
+    def dumps(self, obj: object) -> str:
         """Serialize a Python object to a JSON string."""
         return self._encoder(obj)
 
@@ -238,7 +237,7 @@ def loads(
 
 # pylint: disable-next=R0913
 def write(  # noqa: PLR0913
-    obj: Any,
+    obj: object,
     filename: StrPath,
     *,
     allow: _AllowList = NOTHING,
@@ -265,7 +264,7 @@ def write(  # noqa: PLR0913
 
 # pylint: disable-next=R0913
 def dump(  # noqa: PLR0913
-    obj: Any,
+    obj: object,
     fp: SupportsWrite[str] = stdout,
     *,
     allow: _AllowList = NOTHING,
@@ -292,7 +291,7 @@ def dump(  # noqa: PLR0913
 
 # pylint: disable-next=R0913
 def dumps(  # noqa: PLR0913
-    obj: Any,
+    obj: object,
     *,
     allow: _AllowList = NOTHING,
     end: str = "\n",
