@@ -51,7 +51,9 @@ def _get_err_context(doc: str, start: int, end: int) -> tuple[int, str, int]:
     else:
         line_end = start
 
-    end = min(max(start + 1, line_end), end)
+    if (end := min(max(start + 1, line_end), end)) == start:
+        end += 1
+
     max_chars: int = get_terminal_size().columns - 4  # leading spaces
     if end == line_end + 1:  # newline
         max_chars -= 1

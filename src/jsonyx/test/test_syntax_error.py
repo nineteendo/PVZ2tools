@@ -83,8 +83,8 @@ def test_start_and_end_position(  # noqa: PLR0913, PLR0917
         #                 ^^^^^^^               ^^^^^^^
 
         # No newline
-        (17, "start-middle-end", 0, 5, 1, "start-middle-end", 6),
-        #     ^^^^^                        ^^^^^
+        (9, "start-end", 0, 5, 1, "start-end", 6),
+        #    ^^^^^                 ^^^^^
         (8, "current\nnext", 0, 12, 1, "current", 8),
         #    ^^^^^^^^^^^^^              ^^^^^^^
         (8, "current\rnext", 0, 12, 1, "current", 8),
@@ -101,6 +101,10 @@ def test_start_and_end_position(  # noqa: PLR0913, PLR0917
         #           ^^^^^^                     ^
         (8, "current\r\nnext", 7, 13, 8, "current", 9),
         #           ^^^^^^^^                     ^
+
+        # At least one character
+        (9, "start-end", 5, 5, 6, "start-end", 7),
+        #         ^                     ^
 
         # Expand tabs
         (8, "\tcurrent", 1, 8, 2, " current", 9),
