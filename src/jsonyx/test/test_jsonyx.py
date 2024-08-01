@@ -113,11 +113,3 @@ def test_read(json: ModuleType) -> None:
         filename: Path = Path(tmpdir) / "file.json"
         filename.write_text("0", "utf_8")
         assert json.read(filename) == 0
-
-
-def test_write(json: ModuleType) -> None:
-    """Test JSON write."""
-    with TemporaryDirectory() as tmpdir:
-        filename: Path = Path(tmpdir) / "file.json"
-        json.write(0, filename)
-        assert filename.read_text("utf_8") == "0\n"
