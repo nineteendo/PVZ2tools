@@ -14,7 +14,8 @@ from jsonyx import JSONSyntaxError, dump, format_syntax_error, loads
 from jsonyx.allow import EVERYTHING, NOTHING, SURROGATES
 
 
-class JSONNamespace:  # pylint: disable=R0903
+# pylint: disable-next=R0903
+class JSONNamespace:
     """JSON namespace."""
 
     compact: bool

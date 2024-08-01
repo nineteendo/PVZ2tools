@@ -94,7 +94,8 @@ except ImportError:
 class JSONSyntaxError(SyntaxError):
     """JSON syntax error."""
 
-    def __init__(  # pylint: disable=R0913
+    # pylint: disable-next=R0913
+    def __init__(
         self, msg: str, filename: str, doc: str, start: int, end: int = 0,
     ) -> None:
         """Create new JSON syntax error."""

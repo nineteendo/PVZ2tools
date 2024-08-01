@@ -14,19 +14,18 @@ from jsonyx import JSONSyntaxError
 if TYPE_CHECKING:
     from types import ModuleType
 
+pyjson: ModuleType | None = import_fresh_module("jsonyx", blocked=["_jsonyx"])
 if cjson := import_fresh_module("jsonyx", fresh=["_jsonyx"]):
     # JSONSyntaxError is cached inside the _jsonyx module
     cjson.JSONSyntaxError = JSONSyntaxError  # type: ignore
-
-pyjson: ModuleType | None = import_fresh_module("jsonyx", blocked=["_jsonyx"])
 
 
 @pytest.fixture(params=[cjson, pyjson], ids=["cjson", "pyjson"], name="json")
 def get_json(request: pytest.FixtureRequest) -> ModuleType:
     """Get JSON module."""
-    json: ModuleType | None = request.param
-    if json is None:
+    json: ModuleType | None
+    if (json := request.param) is None:
         pytest.xfail("module unavailable")
         pytest.fail("module unavailable")
 
-    return json
+    return json  # type: ignore[no-any-return]

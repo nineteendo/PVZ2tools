@@ -65,8 +65,7 @@ except ImportError:
                 try:
                     return _ESCAPE_DCT[s]
                 except KeyError:
-                    uni: int = ord(s)
-                    if uni >= 0x10000:
+                    if (uni := ord(s)) >= 0x10000:
                         # surrogate pair
                         uni -= 0x10000
                         uni1: int = 0xd800 | ((uni >> 10) & 0x3ff)

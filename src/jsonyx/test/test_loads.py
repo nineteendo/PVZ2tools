@@ -269,7 +269,7 @@ def test_invalid_string(
 
     # Multiple values
     ("[1, 2, 3]", [1, 2, 3]),
-])  # type: ignore
+])
 def test_array(json: ModuleType, s: str, expected: list[object]) -> None:
     """Test JSON array."""
     assert json.loads(s) == expected
@@ -348,7 +348,7 @@ def test_invalid_array(
 
     # Multiple values
     ('{"a": 1, "b": 2, "c": 3}', {"a": 1, "b": 2, "c": 3}),
-])  # type: ignore
+])
 def test_object(json: ModuleType, s: str, expected: dict[str, object]) -> None:
     """Test JSON object."""
     assert json.loads(s) == expected

@@ -13,7 +13,8 @@ import jsonyx.tool
 from jsonyx.tool import JSONNamespace
 
 
-class _PyVZ2Namespace:  # pylint: disable=R0903
+# pylint: disable-next=R0903
+class _PyVZ2Namespace:
     command: Literal["json"]
 
 
