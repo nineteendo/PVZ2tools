@@ -1,5 +1,4 @@
 # Copyright (C) 2024 Nice Zombies
-# TODO(Nice Zombies): test jsonyx.dumps
 """Get JSON module."""
 from __future__ import annotations
 

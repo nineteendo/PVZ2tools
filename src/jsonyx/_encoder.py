@@ -187,12 +187,13 @@ except ImportError:
                 write(encode_string(obj))
             elif obj is None:
                 write("null")
-            elif obj is True:
-                write("true")
-            elif obj is False:
-                write("false")
             elif isinstance(obj, int):
-                write(int_repr(obj))
+                if obj is True:
+                    write("true")
+                elif obj is False:
+                    write("false")
+                else:
+                    write(int_repr(obj))
             elif isinstance(obj, float):
                 write(floatstr(obj))
             elif isinstance(obj, list):

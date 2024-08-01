@@ -69,15 +69,17 @@ def test_utf8_bom(json: ModuleType) -> None:
     ("false", False),
     ("null", None),
 ])
-def test_keywords(json: ModuleType, s: str, *, expected: bool | None) -> None:
-    """Test JSON keywords."""
+def test_literal_names(
+    json: ModuleType, s: str, expected: bool | None,  # noqa: FBT001
+) -> None:
+    """Test literal names."""
     assert json.loads(s) is expected
 
 
 @pytest.mark.parametrize("s", ["NaN", "Infinity", "-Infinity"])
 @pytest.mark.parametrize("use_decimal", [True, False])
 def test_nan_and_infinity(
-    json: ModuleType, s: str, *, use_decimal: bool,
+    json: ModuleType, s: str, use_decimal: bool,  # noqa: FBT001
 ) -> None:
     """Test NaN and infinity with decimal and float."""
     obj: object = json.loads(
@@ -95,7 +97,7 @@ def test_nan_and_infinity(
 @pytest.mark.parametrize("s", ["NaN", "Infinity", "-Infinity"])
 @pytest.mark.parametrize("use_decimal", [True, False])
 def test_nan_and_infinity_not_allowed(
-    json: ModuleType, s: str, *, use_decimal: bool,
+    json: ModuleType, s: str, use_decimal: bool,  # noqa: FBT001
 ) -> None:
     """Test NaN and infinity with decimal and float if not allowed."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
@@ -141,7 +143,7 @@ def test_int(json: ModuleType, s: str) -> None:
 ])
 @pytest.mark.parametrize("use_decimal", [True, False])
 def test_decimal_and_float(
-    json: ModuleType, s: str, *, use_decimal: bool,
+    json: ModuleType, s: str, use_decimal: bool,  # noqa: FBT001
 ) -> None:
     """Test decimal and float."""
     obj: object = json.loads(s, use_decimal=use_decimal)
