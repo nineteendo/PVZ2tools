@@ -460,6 +460,15 @@ def test_reuse_keys(json: ModuleType) -> None:
     assert len(ids) == 1
 
 
+@pytest.mark.parametrize("s", ["", "-", "foo"])
+def test_expecting_value(json: ModuleType, s: str) -> None:
+    """Test expecting JSON value."""
+    with pytest.raises(json.JSONSyntaxError) as exc_info:
+        json.loads(s)
+
+    _check_syntax_err(exc_info, "Expecting value", 1)
+
+
 @pytest.mark.parametrize(("s", "expected"), [
     ("[1 2 3]", [1, 2, 3]),
     ('{"a": 1 "b": 2 "c": 3}', {"a": 1, "b": 2, "c": 3}),
@@ -504,15 +513,6 @@ def test_value_whitespace(json: ModuleType, s: str) -> None:
 def test_value_comments(json: ModuleType, s: str) -> None:
     """Test comments around JSON value."""
     assert json.loads(s, allow=COMMENTS) == 0
-
-
-@pytest.mark.parametrize("s", ["", "-", "foo"])
-def test_invalid_value(json: ModuleType, s: str) -> None:
-    """Test invalid JSON value."""
-    with pytest.raises(json.JSONSyntaxError) as exc_info:
-        json.loads(s)
-
-    _check_syntax_err(exc_info, "Expecting value", 1)
 
 
 @pytest.mark.parametrize("s", [

@@ -194,6 +194,18 @@ def test_list(json: ModuleType, obj: list[object], expected: str) -> None:
     assert json.dumps(obj, end="") == expected
 
 
+@pytest.mark.parametrize(("indent", "expected"), [
+    (0, "[\n1,\n2,\n3\n]"),
+    (1, "[\n 1,\n 2,\n 3\n]"),
+    ("\t", "[\n\t1,\n\t2,\n\t3\n]"),
+])
+def test_list_indent(
+    json: ModuleType, indent: int | str, expected: str,
+) -> None:
+    """Test list indent."""
+    assert json.dumps([1, 2, 3], end="", indent=indent) == expected
+
+
 @pytest.mark.parametrize(("obj", "expected"), [
     # Empty dict
     ({}, "{}"),
@@ -218,6 +230,25 @@ def test_unserializable_key(json: ModuleType, key: object) -> None:
         json.dumps({key: 0})
 
 
+def test_sort_keys(json: ModuleType) -> None:
+    """Test sort_keys."""
+    s: str = json.dumps({"c": 3, "b": 2, "a": 1}, end="", sort_keys=True)
+    assert s == '{"a": 1, "b": 2, "c": 3}'
+
+
+@pytest.mark.parametrize(("indent", "expected"), [
+    (0, '{\n"a": 1,\n"b": 2,\n"c": 3\n}'),
+    (1, '{\n "a": 1,\n "b": 2,\n "c": 3\n}'),
+    ("\t", '{\n\t"a": 1,\n\t"b": 2,\n\t"c": 3\n}'),
+])
+def test_dict_indent(
+    json: ModuleType, indent: int | str, expected: str,
+) -> None:
+    """Test dict indent."""
+    s: str = json.dumps({"a": 1, "b": 2, "c": 3}, end="", indent=indent)
+    assert s == expected
+
+
 @pytest.mark.parametrize("obj", [
     # Literals
     b"", 0j, (),
@@ -238,3 +269,48 @@ def test_circular_reference(
     """Test circular reference."""
     with pytest.raises(ValueError, match="Unexpected circular reference"):
         json.dumps(obj)
+
+
+def test_default_end(json: ModuleType) -> None:
+    """Test default end."""
+    assert json.dumps(0) == "0\n"
+
+
+def test_custom_end(json: ModuleType) -> None:
+    """Test custom end."""
+    assert json.dumps(0, end="") == "0"
+
+
+@pytest.mark.parametrize(("obj", "expected"), [
+    ([1, 2, 3], "[1,2,3]"),
+    ({"a": 1, "b": 2, "c": 3}, '{"a":1,"b":2,"c":3}'),
+])
+def test_compact(
+    json: ModuleType, obj: dict[str, object] | list[object], expected: str,
+) -> None:
+    """Test compact."""
+    s: str = json.dumps(obj, end="", item_separator=",", key_separator=":")
+    assert s == expected
+
+
+@pytest.mark.parametrize(("obj", "expected"), [
+    ([1, 2, 3], "[\n\t1,\n\t2,\n\t3,\n]"),
+    ({"a": 1, "b": 2, "c": 3}, '{\n\t"a": 1,\n\t"b": 2,\n\t"c": 3,\n}'),
+])
+def test_trailing_comma_indent(
+    json: ModuleType, obj: dict[str, object] | list[object], expected: str,
+) -> None:
+    """Test trailing_comma with indent."""
+    s: str = json.dumps(obj, end="", indent="\t", trailing_comma=True)
+    assert s == expected
+
+
+@pytest.mark.parametrize(("obj", "expected"), [
+    ([1, 2, 3], "[1, 2, 3]"),
+    ({"a": 1, "b": 2, "c": 3}, '{"a": 1, "b": 2, "c": 3}'),
+])
+def test_trailing_comma_no_indent(
+    json: ModuleType, obj: dict[str, object] | list[object], expected: str,
+) -> None:
+    """Test trailing_comma without indent."""
+    assert json.dumps(obj, end="", trailing_comma=True) == expected
