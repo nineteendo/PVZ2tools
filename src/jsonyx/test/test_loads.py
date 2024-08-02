@@ -81,7 +81,7 @@ def test_literal_names(
 def test_nan_and_infinity(
     json: ModuleType, s: str, use_decimal: bool,  # noqa: FBT001
 ) -> None:
-    """Test NaN and infinity with decimal and float."""
+    """Test NaN and infinity."""
     obj: object = json.loads(
         s, allow=NAN_AND_INFINITY, use_decimal=use_decimal,
     )
@@ -99,7 +99,7 @@ def test_nan_and_infinity(
 def test_nan_and_infinity_not_allowed(
     json: ModuleType, s: str, use_decimal: bool,  # noqa: FBT001
 ) -> None:
-    """Test NaN and infinity with decimal and float if not allowed."""
+    """Test NaN and infinity if not allowed."""
     with pytest.raises(json.JSONSyntaxError) as exc_info:
         json.loads(s, use_decimal=use_decimal)
 
@@ -142,10 +142,10 @@ def test_int(json: ModuleType, s: str) -> None:
     "1.1e1", "-1e1", "-1.1", "-1.1e1",
 ])
 @pytest.mark.parametrize("use_decimal", [True, False])
-def test_decimal_and_float(
+def test_rational_number(
     json: ModuleType, s: str, use_decimal: bool,  # noqa: FBT001
 ) -> None:
-    """Test decimal and float."""
+    """Test rational number."""
     obj: object = json.loads(s, use_decimal=use_decimal)
     expected_type: type[Decimal | float] = Decimal if use_decimal else float
     assert isinstance(obj, expected_type)
