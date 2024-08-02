@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
-from jsonyx.allow import NAN_AND_INFINITY
+from jsonyx.allow import NAN_AND_INFINITY, SURROGATES
 # pylint: disable-next=W0611
 from jsonyx.test import get_json  # type: ignore # noqa: F401
 
@@ -104,3 +104,71 @@ def test_signaling_nan(json: ModuleType, num_type: type[Decimal]) -> None:
     """Test signaling NaN."""
     with pytest.raises(ValueError, match="is not JSON serializable"):
         json.dumps(num_type("sNaN"))
+
+
+@pytest.mark.parametrize(("obj", "expected"), [
+    # Empty string
+    ("", '""'),
+
+    # Control characters
+    ("\x00", r'"\u0000"'),
+    ("\x08", r'"\b"'),
+    ("\t", r'"\t"'),
+    ("\n", r'"\n"'),
+    ("\x0c", r'"\f"'),
+    ("\r", r'"\r"'),
+    ('"', r'"\""'),
+    ("\\", r'"\\"'),
+
+    # UTF-8
+    ("$", '"$"'),
+    ("\xa3", '"\u00a3"'),
+    ("\u0418", '"\u0418"'),
+    ("\u0939", '"\u0939"'),
+    ("\u20ac", '"\u20ac"'),
+    ("\ud55c", '"\ud55c"'),
+    ("\U00010348", '"\U00010348"'),
+    ("\U001096b3", '"\U001096b3"'),
+
+    # Surrogates
+    ("\ud800", '"\ud800"'),
+    ("\udf48", '"\udf48"'),  # noqa: PT014
+
+    # Multiple characters
+    ("foo", '"foo"'),
+    (r"foo\bar", r'"foo\\bar"'),
+])
+def test_string(json: ModuleType, obj: str, expected: str) -> None:
+    """Test string."""
+    assert json.dumps(obj, end="") == expected
+
+
+@pytest.mark.parametrize(("obj", "expected"), [
+    ("\xa3", r'"\u00a3"'),
+    ("\u0418", r'"\u0418"'),
+    ("\u0939", r'"\u0939"'),
+    ("\u20ac", r'"\u20ac"'),
+    ("\ud55c", r'"\ud55c"'),
+    ("\U00010348", r'"\ud800\udf48"'),
+    ("\U001096b3", r'"\udbe5\udeb3"'),
+])
+def test_ensure_ascii(json: ModuleType, obj: str, expected: str) -> None:
+    """Test ensure_ascii."""
+    assert json.dumps(obj, end="", ensure_ascii=True) == expected
+
+
+@pytest.mark.parametrize(("obj", "expected"), [
+    ("\ud800", r'"\ud800"'),
+    ("\udf48", r'"\udf48"'),
+])
+def test_surrogate_escapes(json: ModuleType, obj: str, expected: str) -> None:
+    """Test surrogate escapes."""
+    s: str = json.dumps(obj, allow=SURROGATES, end="", ensure_ascii=True)
+    assert s == expected
+
+
+@pytest.mark.parametrize("obj", ["\ud800", "\udf48"])  # noqa: PT014
+def test_surrogate_escapes_not_allowed(json: ModuleType, obj: str) -> None:
+    """Test surrogate escapes if not allowed."""
+    with pytest.raises(ValueError, match="Surrogates are not allowed"):
+        json.dumps(obj, ensure_ascii=True)

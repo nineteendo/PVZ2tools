@@ -65,7 +65,7 @@ def test_start_and_end_position(  # noqa: PLR0913, PLR0917
 
 
 @pytest.mark.parametrize(
-    ("columns", "doc", "start", "end", "offset", "text", "end_offset"), {
+    ("columns", "doc", "start", "end", "offset", "text", "end_offset"), [
         # Only current line
         (7, "current", 0, 7, 1, "current", 8),
         #    ^^^^^^^             ^^^^^^^
@@ -111,10 +111,6 @@ def test_start_and_end_position(  # noqa: PLR0913, PLR0917
         #      ^^^^^^^              ^^^^^^^
 
         # Truncate start
-        (7, "start-middle-end", 5, 6, 4, "...-...", 5),  # end
-        #         ^                          ^
-        (12, "start-middle-end", 7, 11, 5, "...middle...", 9),  # start
-        #            ^^^^                       ^^^^
         (6, "start-middle-end", 13, 16, 4, "...end", 7),  # line_end
         #                 ^^^                  ^^^
         (7, "start-middle-end", 16, 17, 7, "...end", 8),  # newline
@@ -127,11 +123,13 @@ def test_start_and_end_position(  # noqa: PLR0913, PLR0917
         # Truncate end
         (8, "start-middle-end", 0, 5, 1, "start...", 6),  # line_start
         #    ^^^^^                        ^^^^^
-        (7, "start-middle-end", 5, 6, 4, "...-...", 5),  # start
+
+        # Truncate start and end
+        (7, "start-middle-end", 5, 6, 4, "...-...", 5),
         #         ^                          ^
-        (12, "start-middle-end", 7, 11, 5, "...middle...", 9),  # end
+        (12, "start-middle-end", 7, 11, 5, "...middle...", 9),
         #            ^^^^                       ^^^^
-    },
+    ],
 )
 # pylint: disable-next=R0913
 def test_err_context(  # noqa: PLR0913, PLR0917

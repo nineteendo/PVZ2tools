@@ -111,7 +111,7 @@ def test_nan_and_infinity_not_allowed(
     "-1",
 
     # Integer
-    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+    "0", "1", "10", "11",
 ])
 def test_int(json: ModuleType, s: str) -> None:
     """Test integer."""
@@ -125,8 +125,10 @@ def test_int(json: ModuleType, s: str) -> None:
     "-1.0",
 
     # Fraction
-    "1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9",
-    "1.01",
+    "1.0", "1.01", "1.1", "1.11",
+
+    # Fraction with trailing zeros
+    "1.00", "1.10",
 
     # Exponent e
     "1E1",
@@ -135,8 +137,10 @@ def test_int(json: ModuleType, s: str) -> None:
     "1e-1", "1e+1",
 
     # Exponent power
-    "1e0", "1e1", "1e2", "1e3", "1e4", "1e5", "1e6", "1e7", "1e8", "1e9",
-    "1e10",
+    "1e0", "1e1", "1e10", "1e11",
+
+    # Exponent power with leading zeros
+    "1e00", "1e01",
 
     # Parts
     "1.1e1", "-1e1", "-1.1", "-1.1e1",
@@ -192,6 +196,11 @@ def test_too_big_number(json: ModuleType, s: str) -> None:
     ('"\U00010348"', "\U00010348"),
     ('"\U001096b3"', "\U001096b3"),
 
+    # Surrogates
+    ('"\ud800"', "\ud800"),
+    ('"\ud800\u0024"', "\ud800$"),
+    ('"\udf48"', "\udf48"),  # noqa: PT014
+
     # Backslash escapes
     (r'"\""', '"'),
     (r'"\\"', "\\"),
@@ -214,7 +223,7 @@ def test_too_big_number(json: ModuleType, s: str) -> None:
 
     # Multiple characters
     ('"foo"', "foo"),
-    (r'"foo\/bar"', "foo/bar"),
+    (r'"foo\\bar"', r"foo\bar"),
 ])
 def test_string(json: ModuleType, s: str, expected: str) -> None:
     """Test JSON string."""
