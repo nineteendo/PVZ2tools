@@ -61,10 +61,15 @@ class Decoder:
         """Deserialize a JSON file to a Python object."""
         return self.loads(Path(filename).read_bytes(), filename=filename)
 
-    # TODO(Nice Zombies): update filename detection for archives
-    def load(self, fp: SupportsRead[bytes | str]) -> Any:
+    def load(
+        self, fp: SupportsRead[bytes | str], *, root: StrPath = ".",
+    ) -> Any:
         """Deserialize an open JSON file to a Python object."""
-        return self.loads(fp.read(), filename=getattr(fp, "name", "<string>"))
+        name: str | None
+        if name := getattr(fp, "name", None):
+            return self.loads(fp.read(), filename=Path(root) / name)
+
+        return self.loads(fp.read())
 
     def loads(
         self, s: bytearray | bytes | str, *, filename: StrPath = "<string>",
@@ -213,10 +218,11 @@ def load(
     fp: SupportsRead[bytes | str],
     *,
     allow: _AllowList = NOTHING,
+    root: StrPath = ".",
     use_decimal: bool = False,
 ) -> Any:
     """Deserialize an open JSON file to a Python object."""
-    return Decoder(allow=allow, use_decimal=use_decimal).load(fp)
+    return Decoder(allow=allow, use_decimal=use_decimal).load(fp, root=root)
 
 
 def loads(
