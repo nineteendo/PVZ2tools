@@ -10,10 +10,12 @@ def dumps(obj,
           *,
           cache_strings=False,
           sort_keys=False,
+          version=2,  # 1 -> latin_1
           ): ...
 
 def loads(data,
           *,
           strict=True,
+          version=2,  # 1 -> latin_1
           ): ...
 ```

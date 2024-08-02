@@ -61,6 +61,7 @@ class Decoder:
         """Deserialize a JSON file to a Python object."""
         return self.loads(Path(filename).read_bytes(), filename=filename)
 
+    # TODO(Nice Zombies): update filename detection for archives
     def load(self, fp: SupportsRead[bytes | str]) -> Any:
         """Deserialize an open JSON file to a Python object."""
         return self.loads(fp.read(), filename=getattr(fp, "name", "<string>"))
@@ -71,10 +72,7 @@ class Decoder:
         """Deserialize a JSON string to a Python object."""
         filename = fspath(filename)
         if not filename.startswith("<") and not filename.endswith(">"):
-            try:
-                filename = realpath(filename, strict=True)
-            except OSError:
-                filename = "<unknown>"
+            filename = realpath(filename)
 
         if not isinstance(s, str):
             s = s.decode(detect_encoding(s), self._errors)
