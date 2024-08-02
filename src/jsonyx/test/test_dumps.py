@@ -16,6 +16,11 @@ from jsonyx.test import get_json  # type: ignore # noqa: F401
 if TYPE_CHECKING:
     from types import ModuleType
 
+_CIRCULAR_DICT: dict[str, object] = {}
+_CIRCULAR_DICT["self"] = _CIRCULAR_DICT
+_CIRCULAR_LIST: list[object] = []
+_CIRCULAR_LIST.append(_CIRCULAR_LIST)
+
 
 class _BadDecimal(Decimal):
     def __str__(self) -> str:
@@ -172,3 +177,64 @@ def test_surrogate_escapes_not_allowed(json: ModuleType, obj: str) -> None:
     """Test surrogate escapes if not allowed."""
     with pytest.raises(ValueError, match="Surrogates are not allowed"):
         json.dumps(obj, ensure_ascii=True)
+
+
+@pytest.mark.parametrize(("obj", "expected"), [
+    # Empty list
+    ([], "[]"),
+
+    # One value
+    ([0], "[0]"),
+
+    # Multiple values
+    ([1, 2, 3], "[1, 2, 3]"),
+])
+def test_list(json: ModuleType, obj: list[object], expected: str) -> None:
+    """Test list."""
+    assert json.dumps(obj, end="") == expected
+
+
+@pytest.mark.parametrize(("obj", "expected"), [
+    # Empty dict
+    ({}, "{}"),
+
+    # One value
+    ({"": 0}, '{"": 0}'),
+
+    # Multiple values
+    ({"a": 1, "b": 2, "c": 3}, '{"a": 1, "b": 2, "c": 3}'),
+])
+def test_dict(json: ModuleType, obj: dict[str, object], expected: str) -> None:
+    """Test list."""
+    assert json.dumps(obj, end="") == expected
+
+
+@pytest.mark.parametrize(
+    "key", [0, Decimal(0), 0.0, Decimal(0.0), True, False, None],
+)
+def test_unserializable_key(json: ModuleType, key: object) -> None:
+    """Test unserializable key."""
+    with pytest.raises(TypeError, match="Keys must be str, not"):
+        json.dumps({key: 0})
+
+
+@pytest.mark.parametrize("obj", [
+    # Literals
+    b"", 0j, (),
+
+    # Non literals
+    bytearray(), frozenset(), set(),
+])  # type: ignore
+def test_unserializable_value(json: ModuleType, obj: object) -> None:
+    """Test unserializable value."""
+    with pytest.raises(TypeError, match="is not JSON serializable"):
+        json.dumps(obj)
+
+
+@pytest.mark.parametrize("obj", [_CIRCULAR_DICT, _CIRCULAR_LIST])
+def test_circular_reference(
+    json: ModuleType, obj: dict[str, object] | list[object],
+) -> None:
+    """Test circular reference."""
+    with pytest.raises(ValueError, match="Unexpected circular reference"):
+        json.dumps(obj)
