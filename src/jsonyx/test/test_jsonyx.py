@@ -20,7 +20,8 @@ if TYPE_CHECKING:
 
 def test_duplicate_key(json: ModuleType) -> None:
     """Test DuplicateKey."""
-    string: str = json.DuplicateKey("")
+    string: object = json.DuplicateKey("")
+    assert isinstance(string, str)
     assert not str(string)
     assert hash(string) == id(string)
 

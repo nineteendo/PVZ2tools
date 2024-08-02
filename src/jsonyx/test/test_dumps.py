@@ -1,5 +1,4 @@
 # Copyright (C) 2024 Nice Zombies
-# TODO(Nice Zombies): add more tests
 """JSON dumps tests."""
 from __future__ import annotations
 
@@ -24,17 +23,17 @@ _CIRCULAR_LIST.append(_CIRCULAR_LIST)
 
 class _BadDecimal(Decimal):
     def __str__(self) -> str:
-        return repr(self)
+        return f"_BadDecimal({super().__str__()})"
 
 
 class _BadFloat(float):
-    def __str__(self) -> str:
-        return repr(self)
+    def __repr__(self) -> str:
+        return f"_BadFloat({super().__repr__()})"
 
 
 class _BadInt(int):
-    def __str__(self) -> str:
-        return repr(self)
+    def __repr__(self) -> str:
+        return f"_BadInt({super().__repr__()})"
 
 
 @pytest.mark.parametrize(("obj", "expected"), [
@@ -249,13 +248,9 @@ def test_dict_indent(
     assert s == expected
 
 
-@pytest.mark.parametrize("obj", [
-    # Literals
-    b"", 0j, (),
-
-    # Non literals
-    bytearray(), frozenset(), set(),
-])  # type: ignore
+@pytest.mark.parametrize(
+    "obj", [b"", 0j, (), bytearray(), frozenset(), set()],  # type: ignore
+)
 def test_unserializable_value(json: ModuleType, obj: object) -> None:
     """Test unserializable value."""
     with pytest.raises(TypeError, match="is not JSON serializable"):
