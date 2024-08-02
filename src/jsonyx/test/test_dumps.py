@@ -187,7 +187,11 @@ def test_surrogate_escapes_not_allowed(json: ModuleType, obj: str) -> None:
 
     # Multiple values
     ([1, 2, 3], "[1, 2, 3]"),
-])
+
+    # Shadow copy
+    ([[]] * 3, "[[], [], []]"),
+    ([{}] * 3, "[{}, {}, {}]"),
+])  # type: ignore
 def test_list(json: ModuleType, obj: list[object], expected: str) -> None:
     """Test list."""
     assert json.dumps(obj, end="") == expected
