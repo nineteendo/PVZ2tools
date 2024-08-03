@@ -12,5 +12,5 @@ if __name__ == "__main__":
         name="pyvz2-dependencies",
         version="0.0.1",
         packages=find_packages(exclude="jsonyx.*"),
-        install_requires=["jsonyx==1.0.8"],
+        install_requires=["jsonyx==1.1.0"],
     )

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright (C) 2024 Nice Zombies
 """JSON tool."""
 from __future__ import annotations
@@ -6,12 +5,15 @@ from __future__ import annotations
 __all__: list[str] = ["JSONNamespace", "register", "run"]
 
 import sys
-from argparse import ArgumentParser
 from pathlib import Path
 from sys import stderr, stdin
+from typing import TYPE_CHECKING
 
 from jsonyx import JSONSyntaxError, dump, format_syntax_error, loads
 from jsonyx.allow import EVERYTHING, NOTHING, SURROGATES
+
+if TYPE_CHECKING:
+    from argparse import ArgumentParser
 
 
 # pylint: disable-next=R0903
@@ -120,16 +122,3 @@ def run(args: JSONNamespace) -> None:
         sort_keys=args.sort_keys,
         trailing_comma=args.trailing_comma,
     )
-
-
-def _main() -> None:
-    parser: ArgumentParser = ArgumentParser()
-    register(parser)
-    try:
-        run(parser.parse_args(namespace=JSONNamespace()))
-    except BrokenPipeError as exc:
-        sys.exit(exc.errno)
-
-
-if __name__ == "__main__":
-    _main()
