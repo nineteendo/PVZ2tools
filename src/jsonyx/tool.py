@@ -30,25 +30,64 @@ class JSONNamespace:
 
 
 def register(parser: ArgumentParser) -> None:
-    """Register JSON tool."""
-    parser.add_argument("filename", nargs="?")
-    parser.add_argument("--compact", action="store_true")
-    parser.add_argument("--ensure-ascii", action="store_true")
+    """Register JSON tool.
+
+    :param parser: an argument parser
+    :type parser: ArgumentParser
+    """
+    parser.add_argument(
+        "filename",
+        nargs="?",
+        help="the JSON file to be validated or pretty-printed",
+    )
+    parser.add_argument(
+        "--compact",
+        action="store_true",
+        help='don\'t add unnecessary whitespace after "," and ":"',
+    )
+    parser.add_argument(
+        "--ensure-ascii",
+        action="store_true",
+        help="escape non-ascii characters",
+    )
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--indent", type=int, metavar="SPACES")
+    group.add_argument(
+        "--indent", type=int, metavar="SPACES", help="indent using spaces",
+    )
     group.add_argument(
         "--indent-tab", action="store_const", const="\t", dest="indent",
+        help="indent using tabs",
     )
     group2 = parser.add_mutually_exclusive_group()
-    group2.add_argument("--no-commas", action="store_true")
-    group2.add_argument("--trailing-comma", action="store_true")
-    parser.add_argument("--nonstrict", action="store_true")
-    parser.add_argument("--sort-keys", action="store_true")
-    parser.add_argument("--use-decimal", action="store_true")
+    group2.add_argument(
+        "--no-commas",
+        action="store_true",
+        help="separate items by whitespace",
+    )
+    group2.add_argument(
+        "--trailing-comma",
+        action="store_true",
+        help="add a trailing comma if indented",
+    )
+    parser.add_argument(
+        "--nonstrict", action="store_true", help="allow all JSON deviations",
+    )
+    parser.add_argument(
+        "--sort-keys", action="store_true", help="sort the keys of objects",
+    )
+    parser.add_argument(
+        "--use-decimal",
+        action="store_true",
+        help="use decimal instead of float",
+    )
 
 
 def run(args: JSONNamespace) -> None:
-    """Run JSON tool."""
+    """Run JSON tool.
+
+    :param args: the commandline arguments
+    :type args: JSONNamespace
+    """
     if args.filename:
         filename: str = args.filename
         s: bytes | str = Path(filename).read_bytes()

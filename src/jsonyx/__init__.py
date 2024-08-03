@@ -1,5 +1,5 @@
 # Copyright (C) 2024 Nice Zombies
-"""JSONYX module for JSON (de)serialization."""
+"""jsonyx module for JSON (de)serialization."""
 from __future__ import annotations
 
 __all__: list[str] = [
@@ -48,7 +48,13 @@ class Decoder:
     def __init__(
         self, *, allow: _AllowList = NOTHING, use_decimal: bool = False,
     ) -> None:
-        """Create new JSON decoder."""
+        """Create a new JSON decoder.
+
+        :param allow: the allowed JSON deviations, defaults to NOTHING
+        :type allow: Container[str], optional
+        :param use_decimal: use decimal instead of float, defaults to False
+        :type use_decimal: bool, optional
+        """
         allow_surrogates: bool = "surrogates" in allow
         self._errors: str = "surrogatepass" if allow_surrogates else "strict"
         self._scanner: Callable[[str, str], tuple[Any]] = make_scanner(
@@ -58,13 +64,30 @@ class Decoder:
         )
 
     def read(self, filename: StrPath) -> Any:
-        """Deserialize a JSON file to a Python object."""
+        """Deserialize a JSON file to a Python object.
+
+        :param filename: the path to the JSON file
+        :type filename: StrPath
+        :raises JSONSyntaxError: if the JSON file is invalid
+        :return: a Python object
+        :rtype: Any
+        """
         return self.loads(Path(filename).read_bytes(), filename=filename)
 
     def load(
         self, fp: SupportsRead[bytes | str], *, root: StrPath = ".",
     ) -> Any:
-        """Deserialize an open JSON file to a Python object."""
+        """Deserialize an open JSON file to a Python object.
+
+        :param fp: an open JSON file
+        :type fp: SupportsRead[bytes | str]
+        :param root: the path to the archive containing this JSON file,
+                     defaults to "."
+        :type root: StrPath, optional
+        :raises JSONSyntaxError: if the JSON file is invalid
+        :return: a Python object
+        :rtype: Any
+        """
         name: str | None
         if name := getattr(fp, "name", None):
             return self.loads(fp.read(), filename=Path(root) / name)
@@ -74,7 +97,16 @@ class Decoder:
     def loads(
         self, s: bytearray | bytes | str, *, filename: StrPath = "<string>",
     ) -> Any:
-        """Deserialize a JSON string to a Python object."""
+        """Deserialize a JSON string to a Python object.
+
+        :param s: a JSON string
+        :type s: bytearray | bytes | str
+        :param filename: the path to the JSON file, defaults to "<string>"
+        :type filename: StrPath, optional
+        :raises JSONSyntaxError: if the JSON string is invalid
+        :return: a Python object
+        :rtype: Any
+        """
         filename = fspath(filename)
         if not filename.startswith("<") and not filename.endswith(">"):
             filename = realpath(filename)
@@ -104,7 +136,28 @@ class Encoder:
         sort_keys: bool = False,
         trailing_comma: bool = False,
     ) -> None:
-        """Create new JSON encoder."""
+        r"""Create a new JSON encoder.
+
+        :param allow: the allowed JSON deviations, defaults to NOTHING
+        :type allow: Container[str], optional
+        :param end: the string to append at the end, defaults to "\\n"
+        :type end: str, optional
+        :param ensure_ascii: escape non-ASCII characters, defaults to False
+        :type ensure_ascii: bool, optional
+        :param indent: indentation, defaults to None
+        :type indent: int | str | None, optional
+        :param item_separator: the separator between two items, defaults to
+                               ", "
+        :type item_separator: str, optional
+        :param key_separator: the separator between a key and a value, defaults
+                              to ": "
+        :type key_separator: str, optional
+        :param sort_keys: sort the keys of objects, defaults to False
+        :type sort_keys: bool, optional
+        :param trailing_comma: add a trailing comma if indented, defaults to
+                               False
+        :type trailing_comma: bool, optional
+        """
         allow_nan_and_infinity: bool = "nan_and_infinity" in allow
         allow_surrogates: bool = "surrogates" in allow
         decimal_str: Callable[[Decimal], str] = Decimal.__str__
@@ -137,20 +190,50 @@ class Encoder:
         self._errors: str = "surrogatepass" if allow_surrogates else "strict"
 
     def write(self, obj: object, filename: StrPath) -> None:
-        """Serialize a Python object to a JSON file."""
+        """Serialize a Python object to a JSON file.
+
+        :param obj: a Python object
+        :type obj: object
+        :param filename: the path to the JSON file
+        :type filename: StrPath
+        :raises ValueError: for invalid values
+        :raises TypeError: for unserializable values
+        """
         Path(filename).write_text(self._encoder(obj), "utf_8", self._errors)
 
     def dump(self, obj: object, fp: SupportsWrite[str] = stdout) -> None:
-        """Serialize a Python object to an open JSON file."""
+        """Serialize a Python object to an open JSON file.
+
+        :param obj: a Python object
+        :type obj: object
+        :param fp: an open JSON file, defaults to stdout
+        :type fp: SupportsWrite[str], optional
+        :raises ValueError: for invalid values
+        :raises TypeError: for unserializable values
+        """
         fp.write(self._encoder(obj))
 
     def dumps(self, obj: object) -> str:
-        """Serialize a Python object to a JSON string."""
+        """Serialize a Python object to a JSON string.
+
+        :param obj: a Python object
+        :type obj: object
+        :raises ValueError: for invalid values
+        :raises TypeError: for unserializable values
+        :return: a JSON string
+        :rtype: str
+        """
         return self._encoder(obj)
 
 
 def detect_encoding(b: bytearray | bytes) -> str:
-    """Detect JSON encoding."""
+    """Detect JSON encoding.
+
+    :param b: a JSON string
+    :type b: bytearray | bytes
+    :return: the detected encoding
+    :rtype: str
+    """
     # JSON must start with ASCII character (not NULL)
     # Strings can't contain control characters (including NULL)
     encoding: str = "utf_8"
@@ -183,7 +266,13 @@ def detect_encoding(b: bytearray | bytes) -> str:
 
 
 def format_syntax_error(exc: JSONSyntaxError) -> list[str]:
-    """Format JSON syntax error."""
+    """Format JSON syntax error.
+
+    :param exc: a JSON syntax error
+    :type exc: JSONSyntaxError
+    :return: a list of strings, each ending in a newline
+    :rtype: list[str]
+    """
     if exc.end_lineno == exc.lineno:
         line_range: str = f"{exc.lineno:d}"
     else:
@@ -210,7 +299,18 @@ def read(
     allow: _AllowList = NOTHING,
     use_decimal: bool = False,
 ) -> Any:
-    """Deserialize a JSON file to a Python object."""
+    """Deserialize a JSON file to a Python object.
+
+    :param filename: the path to the JSON file
+    :type filename: StrPath
+    :param allow: the allowed JSON deviations, defaults to NOTHING
+    :type allow: Container[str], optional
+    :param use_decimal: use decimal instead of float, defaults to False
+    :type use_decimal: bool, optional
+    :raises JSONSyntaxError: if the JSON file is invalid
+    :return: a Python object.
+    :rtype: Any
+    """
     return Decoder(allow=allow, use_decimal=use_decimal).read(filename)
 
 
@@ -221,7 +321,21 @@ def load(
     root: StrPath = ".",
     use_decimal: bool = False,
 ) -> Any:
-    """Deserialize an open JSON file to a Python object."""
+    """Deserialize an open JSON file to a Python object.
+
+    :param fp: an open JSON file
+    :type fp: SupportsRead[bytes | str]
+    :param allow: the allowed JSON deviations, defaults to NOTHING
+    :type allow: Container[str], optional
+    :param root: the path to the archive containing this JSON file, defaults to
+                 "."
+    :type root: StrPath, optional
+    :param use_decimal: use decimal instead of float, defaults to False
+    :type use_decimal: bool, optional
+    :raises JSONSyntaxError: if the JSON file is invalid
+    :return: a Python object
+    :rtype: Any
+    """
     return Decoder(allow=allow, use_decimal=use_decimal).load(fp, root=root)
 
 
@@ -232,7 +346,20 @@ def loads(
     filename: StrPath = "<string>",
     use_decimal: bool = False,
 ) -> Any:
-    """Deserialize a JSON string to a Python object."""
+    """Deserialize a JSON string to a Python object.
+
+    :param s: a JSON string
+    :type s: bytearray | bytes | str
+    :param allow: the allowed JSON deviations, defaults to NOTHING
+    :type allow: Container[str], optional
+    :param filename: the path to the JSON file, defaults to "<string>"
+    :type filename: StrPath, optional
+    :param use_decimal: use decimal instead of float, defaults to False
+    :type use_decimal: bool, optional
+    :raises JSONSyntaxError: if the JSON string is invalid
+    :return: a Python object
+    :rtype: Any
+    """
     return Decoder(allow=allow, use_decimal=use_decimal).loads(
         s, filename=filename,
     )
@@ -252,7 +379,32 @@ def write(  # noqa: PLR0913
     sort_keys: bool = False,
     trailing_comma: bool = False,
 ) -> None:
-    """Serialize a Python object to a JSON file."""
+    r"""Serialize a Python object to a JSON file.
+
+    :param obj: a Python object
+    :type obj: object
+    :param filename: the path to the JSON file
+    :type filename: StrPath
+    :param allow: the allowed JSON deviations, defaults to NOTHING
+    :type allow: Container[str], optional
+    :param end: the string to append at the end, defaults to "\\n"
+    :type end: str, optional
+    :param ensure_ascii: escape non-ASCII characters, defaults to False
+    :type ensure_ascii: bool, optional
+    :param indent: indentation, defaults to None
+    :type indent: int | str | None, optional
+    :param item_separator: the separator between two items, defaults to ", "
+    :type item_separator: str, optional
+    :param key_separator: the separator between a key and a value, defaults to
+                          ": "
+    :type key_separator: str, optional
+    :param sort_keys: sort the keys of objects, defaults to False
+    :type sort_keys: bool, optional
+    :param trailing_comma: add a trailing comma if indented, defaults to False
+    :type trailing_comma: bool, optional
+    :raises ValueError: for invalid values
+    :raises TypeError: for unserializable values
+    """
     return Encoder(
         allow=allow,
         end=end,
@@ -279,7 +431,32 @@ def dump(  # noqa: PLR0913
     sort_keys: bool = False,
     trailing_comma: bool = False,
 ) -> None:
-    """Serialize a Python object to an open JSON file."""
+    r"""Serialize a Python object to an open JSON file.
+
+    :param obj: a Python object
+    :type obj: object
+    :param fp: an open JSON file, defaults to stdout
+    :type fp: SupportsWrite[str], optional
+    :param allow: the allowed JSON deviations, defaults to NOTHING
+    :type allow: Container[str], optional
+    :param end: the string to append at the end, defaults to "\\n"
+    :type end: str, optional
+    :param ensure_ascii: escape non-ASCII characters, defaults to False
+    :type ensure_ascii: bool, optional
+    :param indent: indentation, defaults to None
+    :type indent: int | str | None, optional
+    :param item_separator: the separator between two items, defaults to ", "
+    :type item_separator: str, optional
+    :param key_separator: the separator between a key and a value, defaults to
+                          ": "
+    :type key_separator: str, optional
+    :param sort_keys: sort the keys of objects, defaults to False
+    :type sort_keys: bool, optional
+    :param trailing_comma: add a trailing comma if indented, defaults to False
+    :type trailing_comma: bool, optional
+    :raises ValueError: for invalid values
+    :raises TypeError: for unserializable values
+    """
     Encoder(
         allow=allow,
         end=end,
@@ -305,7 +482,32 @@ def dumps(  # noqa: PLR0913
     sort_keys: bool = False,
     trailing_comma: bool = False,
 ) -> str:
-    """Serialize a Python object to a JSON string."""
+    r"""Serialize a Python object to a JSON string.
+
+    :param obj: a Python object
+    :type obj: object
+    :param allow: the allowed JSON deviations, defaults to NOTHING
+    :type allow: Container[str], optional
+    :param end: the string to append at the end, defaults to "\\n"
+    :type end: str, optional
+    :param ensure_ascii: escape non-ASCII characters, defaults to False
+    :type ensure_ascii: bool, optional
+    :param indent: indentation, defaults to None
+    :type indent: int | str | None, optional
+    :param item_separator: the separator between two items, defaults to ", "
+    :type item_separator: str, optional
+    :param key_separator: the separator between a key and a value, defaults to
+                          ": "
+    :type key_separator: str, optional
+    :param sort_keys: sort the keys of objects, defaults to False
+    :type sort_keys: bool, optional
+    :param trailing_comma: add a trailing comma if indented, defaults to False
+    :type trailing_comma: bool, optional
+    :raises ValueError: for invalid values
+    :raises TypeError: for unserializable values
+    :return: a JSON string
+    :rtype: str
+    """
     return Encoder(
         allow=allow,
         end=end,
