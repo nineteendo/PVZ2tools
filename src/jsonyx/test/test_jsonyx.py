@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
 import pytest
+
 from jsonyx import JSONSyntaxError, detect_encoding, format_syntax_error
 # pylint: disable-next=W0611
 from jsonyx.test import get_json  # type: ignore # noqa: F401

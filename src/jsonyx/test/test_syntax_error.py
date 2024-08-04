@@ -5,6 +5,7 @@ from __future__ import annotations
 __all__: list[str] = []
 
 import pytest
+
 from jsonyx import JSONSyntaxError
 
 
@@ -73,13 +74,13 @@ def test_start_and_end_position(  # noqa: PLR0913, PLR0917
         #     ^^^^^^^                   ^^^^^^^
         (12, "current\rnext", 0, 7, 1, "current", 8),
         #     ^^^^^^^                   ^^^^^^^
-        (12, "current\r\nnext", 0, 7, 1, "current", 8),
+        (13, "current\r\nnext", 0, 7, 1, "current", 8),
         #     ^^^^^^^                     ^^^^^^^
         (16, "previous\ncurrent", 9, 16, 1, "current", 8),
         #               ^^^^^^^              ^^^^^^^
         (16, "previous\rcurrent", 9, 16, 1, "current", 8),
         #               ^^^^^^^              ^^^^^^^
-        (16, "previous\r\ncurrent", 10, 17, 1, "current", 8),
+        (17, "previous\r\ncurrent", 10, 17, 1, "current", 8),
         #                 ^^^^^^^               ^^^^^^^
 
         # No newline
@@ -117,6 +118,8 @@ def test_start_and_end_position(  # noqa: PLR0913, PLR0917
         #                    ^                    ^
 
         # Truncate middle
+        (12, "start-middle-end", 0, 16, 1, "start...-end", 13),
+        #     ^^^^^^^^^^^^^^^^              ^^^^^^^^^^^^
         (13, "start-middle-end", 0, 16, 1, "start...e-end", 14),
         #     ^^^^^^^^^^^^^^^^              ^^^^^^^^^^^^^
 
@@ -127,8 +130,14 @@ def test_start_and_end_position(  # noqa: PLR0913, PLR0917
         # Truncate start and end
         (7, "start-middle-end", 5, 6, 4, "...-...", 5),
         #         ^                          ^
+        (8, "start-middle-end", 5, 6, 5, "...t-...", 6),
+        #         ^                           ^
+        (11, "start-middle-end", 7, 11, 5, "...middl...", 9),
+        #            ^^^^                       ^^^^
         (12, "start-middle-end", 7, 11, 5, "...middle...", 9),
         #            ^^^^                       ^^^^
+        (13, "start-middle-end", 7, 11, 6, "...-middle...", 10),
+        #            ^^^^                        ^^^^
     ],
 )
 # pylint: disable-next=R0913

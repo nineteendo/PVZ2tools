@@ -9,6 +9,7 @@ from math import isnan
 from typing import TYPE_CHECKING, Any
 
 import pytest
+
 from jsonyx.allow import (
     COMMENTS, DUPLICATE_KEYS, MISSING_COMMAS, NAN_AND_INFINITY, SURROGATES,
     TRAILING_COMMA,

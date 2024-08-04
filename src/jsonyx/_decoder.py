@@ -57,10 +57,11 @@ def _get_err_context(doc: str, start: int, end: int) -> tuple[int, str, int]:
         max_chars -= 1
 
     text_start: int = max(min(
-        line_end - max_chars, end - max_chars // 2 - 1, start - max_chars // 3,
+        line_end - max_chars, end - 1 - max_chars // 2,
+        start - (max_chars + 2) // 3,
     ), line_start)
     text_end: int = min(max(
-        line_start + max_chars, start + max_chars // 2 + 1,
+        line_start + max_chars, start + (max_chars + 1) // 2,
         end + max_chars // 3,
     ), line_end)
     text: str = doc[text_start:text_end].expandtabs(1)
@@ -69,7 +70,9 @@ def _get_err_context(doc: str, start: int, end: int) -> tuple[int, str, int]:
 
     if len(text) > max_chars:
         end -= len(text) - max_chars
-        text = text[:max_chars // 2 - 1] + "..." + text[-max_chars // 2 + 2:]
+        text = (
+            text[:max_chars // 2 - 1] + "..." + text[2 - (max_chars + 1) // 2:]
+        )
 
     if text_end < line_end:
         text = text[:-3] + "..."
